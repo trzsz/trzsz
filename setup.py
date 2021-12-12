@@ -24,7 +24,7 @@ import re
 from setuptools import setup, find_packages
 
 version_regex = r'[ \t]*__version__[ \t]*=[ \t]*[\'"](\d+\.\d+\.\d+)[\'"]'
-with open('trzsz/iterm2/__version__.py', 'r') as f:
+with open('trzsz/__version__.py', 'r') as f:
     version = re.search(version_regex, f.read()).group(1)
 
 with open('README.md', 'r') as f:
@@ -38,33 +38,26 @@ classifiers = [
     'Intended Audience :: System Administrators',
     'License :: OSI Approved :: MIT License',
     'Natural Language :: English',
-    'Operating System :: MacOS',
+    'Operating System :: POSIX',
+    'Operating System :: POSIX :: Linux',
     'Programming Language :: Python',
     'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 3',
     'Topic :: Utilities',
 ]
 
-entry_points = {
-    'console_scripts': [
-        'trzsz-iterm2 = trzsz.iterm2.main:main',
-    ],
-}
-
 setup(
-    name                            = 'trzsz-iterm2',
+    name                            = 'trzsz',
     version                         = version,
     author                          = 'Lonny Wong',
     author_email                    = 'lonnywong@qq.com',
-    packages                        = find_packages(),
-    namespace_packages              = ['trzsz'],
+    packages                        = [ 'trzsz' ],
     long_description                = long_description,
     long_description_content_type   = 'text/markdown',
     url                             = 'https://github.com/lonnywong/trzsz',
-    install_requires                = [ 'trzsz-libs' ],
+    install_requires                = [ 'trzsz-libs', 'trzsz-svr', 'trzsz-iterm2' ],
     license                         = 'MIT License',
     classifiers                     = classifiers,
-    entry_points                    = entry_points,
     keywords                        = 'trzsz trz tsz rz sz tmux iTerm2 progressbar',
     zip_safe                        = False,
     description                     = 'A simple file transfer tools, ' \

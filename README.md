@@ -1,4 +1,7 @@
 # trzsz
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](https://choosealicense.com/licenses/mit/)
+[![PyPI trzsz](https://img.shields.io/pypi/v/trzsz?style=flat)](https://pypi.python.org/pypi/trzsz/)
+
 A simple file transfer tools, similar to rz/sz but compatible with tmux (control mode), which works with iTerm2 and has a nice progress bar.
 
 
@@ -19,7 +22,7 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 * [Python](https://www.python.org/)
   * Python’s standard library is good enough.
 * [iTerm2](https://iterm2.com/index.html)
-  * [Tmux Integration](https://iterm2.com/documentation-tmux-integration.html) and [Coprocesses](https://iterm2.com/documentation-coprocesses.html) are so cool. 
+  * [Tmux Integration](https://iterm2.com/documentation-tmux-integration.html) and [Coprocesses](https://iterm2.com/documentation-coprocesses.html) are so cool.
   * `btw` without tmux works too.
 * [zenity](https://github.com/ncruces/zenity)
   * Optional for a nice progress bar.
@@ -48,7 +51,7 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   | Enabled | ✅ |
 
   ![](https://github.com/lonnywong/trzsz/blob/main/screen-shot/config.png?raw=true)
-    
+
 
 * `Optional` install [zenity](https://github.com/ncruces/zenity) for a nice progress bar.
   * should be placed at `/usr/local/bin/zenity`
@@ -88,11 +91,11 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
 * Upload files to remote server.
 
-  ![](https://github.com/lonnywong/trzsz/blob/main/screen-shot/upload.gif?raw=true)
-  
+  ![Upload files looks good](https://github.com/lonnywong/trzsz/blob/main/screen-shot/upload.gif?raw=true)
+
 * Download files from remote server.
 
-  ![](https://github.com/lonnywong/trzsz/blob/main/screen-shot/download.gif?raw=true)
+  ![Download files looks good](https://github.com/lonnywong/trzsz/blob/main/screen-shot/download.gif?raw=true)
 
 
 ## Contact

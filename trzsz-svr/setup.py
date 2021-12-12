@@ -27,7 +27,7 @@ version_regex = r'[ \t]*__version__[ \t]*=[ \t]*[\'"](\d+\.\d+\.\d+)[\'"]'
 with open('trzsz/svr/__version__.py', 'r') as f:
     version = re.search(version_regex, f.read()).group(1)
 
-with open('../README.md', 'r') as f:
+with open('README.md', 'r') as f:
     long_description = f.read()
 
 classifiers = [
@@ -67,7 +67,7 @@ setup(
     license                         = 'MIT License',
     classifiers                     = classifiers,
     entry_points                    = entry_points,
-    keywords                        = 'trzsz trz tsz rz sz tmux iTerm2 progress bar',
+    keywords                        = 'trzsz trz tsz rz sz tmux iTerm2 progressbar',
     zip_safe                        = False,
     description                     = 'A simple file transfer tools, ' \
                                       'similar to rz/sz but compatible with tmux (control mode), ' \
