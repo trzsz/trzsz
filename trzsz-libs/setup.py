@@ -55,13 +55,13 @@ setup(
     namespace_packages              = ['trzsz'],
     long_description                = long_description,
     long_description_content_type   = 'text/markdown',
-    url                             = 'https://github.com/lonnywong/trzsz',
+    url                             = 'https://trzsz.github.io',
     install_requires                = [],
     license                         = 'MIT License',
     classifiers                     = classifiers,
-    keywords                        = 'trzsz trz tsz rz sz tmux iTerm2 progressbar',
+    keywords                        = 'trzsz trz tsz lrzsz rz sz tmux iTerm2 progressbar',
     zip_safe                        = False,
-    description                     = 'A simple file transfer tools, ' \
-                                      'similar to rz/sz but compatible with tmux (control mode), ' \
+    description                     = 'trzsz is a simple file transfer tools, ' \
+                                      'similar to lrzsz ( rz / sz ) but compatible with tmux (control mode), ' \
                                       'which works with iTerm2 and has a nice progress bar.',
 )

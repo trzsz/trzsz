@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 import re
-from setuptools import setup, find_packages
+from setuptools import setup
 
 version_regex = r'[ \t]*__version__[ \t]*=[ \t]*[\'"](\d+\.\d+\.\d+)[\'"]'
 with open('trzsz/__version__.py', 'r') as f:
@@ -46,21 +46,27 @@ classifiers = [
     'Topic :: Utilities',
 ]
 
+install_requires = [
+    'trzsz-libs >= ' + version,
+    'trzsz-svr >= ' + version,
+    'trzsz-iterm2 >= ' + version,
+]
+
 setup(
     name                            = 'trzsz',
     version                         = version,
     author                          = 'Lonny Wong',
     author_email                    = 'lonnywong@qq.com',
-    packages                        = [ 'trzsz' ],
+    packages                        = ['trzsz'],
     long_description                = long_description,
     long_description_content_type   = 'text/markdown',
-    url                             = 'https://github.com/lonnywong/trzsz',
-    install_requires                = [ 'trzsz-libs', 'trzsz-svr', 'trzsz-iterm2' ],
+    url                             = 'https://trzsz.github.io',
+    install_requires                = install_requires,
     license                         = 'MIT License',
     classifiers                     = classifiers,
-    keywords                        = 'trzsz trz tsz rz sz tmux iTerm2 progressbar',
+    keywords                        = 'trzsz trz tsz lrzsz rz sz tmux iTerm2 progressbar',
     zip_safe                        = False,
-    description                     = 'A simple file transfer tools, ' \
-                                      'similar to rz/sz but compatible with tmux (control mode), ' \
+    description                     = 'trzsz is a simple file transfer tools, ' \
+                                      'similar to lrzsz ( rz / sz ) but compatible with tmux (control mode), ' \
                                       'which works with iTerm2 and has a nice progress bar.',
 )

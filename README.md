@@ -1,8 +1,13 @@
 # trzsz
+
+trzsz is a simple file transfer tools, similar to lrzsz ( rz / sz ) but compatible with tmux (control mode).
+
+which works with iTerm2 and has a nice progress bar.
+
+Website: [https://trzsz.github.io](https://trzsz.github.io)
+
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](https://choosealicense.com/licenses/mit/)
 [![PyPI trzsz](https://img.shields.io/pypi/v/trzsz?style=flat)](https://pypi.python.org/pypi/trzsz/)
-
-A simple file transfer tools, similar to rz/sz but compatible with tmux (control mode), which works with iTerm2 and has a nice progress bar.
 
 
 ## Why?
@@ -46,11 +51,11 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   | Name | Value |
   | ---- | ---- |
   | Regular Expression | `:(:TRZSZ:TRANSFER:[SR]:\d+\.\d+\.\d+)` |
-  | Actions | `Run Silent Coprocess` |
+  | Action | `Run Silent Coprocess` |
   | Parameters | `/usr/local/bin/trzsz-iterm2 \1` |
   | Enabled | ✅ |
 
-  ![](https://github.com/lonnywong/trzsz/blob/main/screen-shot/config.png?raw=true)
+  ![iTerm2 Trigger configuration](https://trzsz.github.io/images/config.png)
 
 
 * `Optional` install [zenity](https://github.com/ncruces/zenity) for a nice progress bar.
@@ -91,11 +96,11 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
 * Upload files to remote server.
 
-  ![Upload files looks good](https://github.com/lonnywong/trzsz/blob/main/screen-shot/upload.gif?raw=true)
+  ![Upload files looks good](https://trzsz.github.io/images/upload.gif)
 
 * Download files from remote server.
 
-  ![Download files looks good](https://github.com/lonnywong/trzsz/blob/main/screen-shot/download.gif?raw=true)
+  ![Download files looks good](https://trzsz.github.io/images/download.gif)
 
 
 ## Contact
