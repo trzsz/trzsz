@@ -62,6 +62,6 @@ setup(
     keywords                        = 'trzsz trz tsz lrzsz rz sz tmux iTerm2 progressbar',
     zip_safe                        = False,
     description                     = 'trzsz is a simple file transfer tools, ' \
-                                      'similar to lrzsz ( rz / sz ) but compatible with tmux (control mode), ' \
+                                      'similar to lrzsz ( rz / sz ) but compatible with tmux, ' \
                                       'which works with iTerm2 and has a nice progress bar.',
 )

@@ -28,6 +28,9 @@ import base64
 import select
 import hashlib
 import termios
+import subprocess
+
+tmux_real_stdout = sys.stdout
 
 try:
     stdin_old_tty = termios.tcgetattr(sys.stdin.fileno())
@@ -83,30 +86,36 @@ class Callback(object):
     def on_done(self, name):
         pass
 
+def clean_input(timeout):
+    while True:
+        r, w, x = select.select([sys.stdin], [], [], timeout)
+        if not r:
+            break
+        os.read(sys.stdin.fileno(), 1024)
+
 def delay_exit(succ, msg):
     if isinstance(msg, (bytes, bytearray)):
         msg = msg.decode('utf8')
     if not isinstance(msg, str):
         msg = str(msg)
-    while True:
-        r, w, x = select.select([sys.stdin], [], [], 0.2)
-        if not r:
-            break
-        sys.stdin.readline()
+    clean_input(0.2)
     reset_stdin_tty()
+    sys.stdout.write('\x1b8\x1b[0J')
+    sys.stdout.flush()
     if succ:
-        sys.stdout.write(msg.ljust(30) + '\n')
-        sys.exit(0)
+        sys.stdout.write(msg + '\n')
     else:
-        sys.stderr.write(msg.ljust(30) + '\n')
-        sys.exit(1)
+        sys.stderr.write(msg + '\n')
+    if 'TRZSZ_NEW_WINDOW' in os.environ:
+        os.system("""bash -c 'read -s -n 1 -p "Press any key to continue..."'""")
+    sys.exit(0 if succ else 1)
 
 def send_line(typ, buf):
     if not isinstance(buf, (bytes, bytearray)):
         buf = buf.encode('utf8')
     enc = base64.b64encode(zlib.compress(buf)).decode('utf8')
-    sys.stdout.write('%s:%s\n' % (typ, enc))
-    sys.stdout.flush()
+    tmux_real_stdout.write('%s:%s\n' % (typ, enc))
+    tmux_real_stdout.flush()
 
 def recv_line(binary=False):
     s = sys.stdin.readline()
@@ -114,17 +123,19 @@ def recv_line(binary=False):
         typ, buf = s.split(':', 1)
         dec = zlib.decompress(base64.b64decode(buf))
         return typ, (dec if binary else dec.decode('utf8'))
-    except ValueError:
-        return False, s
-    except TypeError:
-        return False, s
-    except zlib.error:
+    except (ValueError, TypeError, zlib.error):
         return False, s
 
-def check_succ():
+def check_succ(ignore_status_bar=False):
     typ, buf = recv_line()
     if typ == '#EXIT':
         delay_exit(False, buf)
+    if ignore_status_bar and typ != 'SUCC':
+        s = buf if not typ else (typ + ':' + buf)
+        while s[-2] == '\r':
+            s += sys.stdin.readline()
+        if 'SUCC:' in s:
+            return s.split('SUCC:')[-1]
     if typ != 'SUCC':
         raise SendError(typ, buf)
     return buf
@@ -136,11 +147,7 @@ def send_fail(info):
     send_line('FAIL', info)
 
 def send_exit(succ, msg):
-    while True:
-        r, w, x = select.select([sys.stdin], [], [], 0.2)
-        if not r:
-            break
-        sys.stdin.readline()
+    clean_input(0.2)
     send_line('#EXIT', msg)
     if succ:
         sys.exit(0)
@@ -179,6 +186,29 @@ def check_files(file_list):
         if not os.access(f, os.R_OK):
             raise FileError('No permission to read: %s' % f)
     return True
+
+def check_tmux():
+    if 'TMUX' not in os.environ:
+        return
+    try:
+        tmux_session = int(os.environ['TMUX'].split(',')[2])
+        output = subprocess.check_output(['tmux', 'lsc', '-t', str(tmux_session), '-F', '#{client_tty} ' \
+                                         '#{client_control_mode}'], stderr=subprocess.STDOUT)
+        tmux_client = output.decode('utf8').strip().split('\n')
+        if len(tmux_client) > 1:
+            sys.stderr.write('Too many clients attached to the tmux session\n')
+            subprocess.call(['tmux', 'lsc'])
+            sys.exit(1)
+        tty, mode = tmux_client[0].split()
+    except (IndexError, ValueError, EnvironmentError, subprocess.CalledProcessError):
+        return
+    if not os.path.exists(tty) or mode != '0':
+        return
+    if 'TRZSZ_NEW_WINDOW' in os.environ:
+        global tmux_real_stdout
+        tmux_real_stdout = open(tty, 'w')
+    else:
+        sys.exit(subprocess.call(['tmux', 'new-window', 'TRZSZ_NEW_WINDOW=1 ' + ' '.join(sys.argv)]))
 
 def send_files(file_list, callback=None):
     send_check('NUM', str(len(file_list)))

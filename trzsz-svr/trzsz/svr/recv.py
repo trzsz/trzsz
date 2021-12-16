@@ -32,7 +32,7 @@ def handle_error(msg):
     check_exit(False)
 
 def main():
-    parser = ArgumentParser(description='Receive file(s), similar to rz but compatible with tmux (control mode).')
+    parser = ArgumentParser(description='Receive file(s), similar to rz but compatible with tmux.')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) ' + __version__)
     parser.add_argument('path', nargs='?', default='.', help='Path to save file(s). (default: current directory)')
     args = parser.parse_args()
@@ -44,7 +44,9 @@ def main():
         sys.stderr.write(str(e) + '\n')
         return
 
-    sys.stdout.write('\x07::TRZSZ:TRANSFER:R:%s\n' % __version__)
+    check_tmux()
+
+    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:R:%s\n' % __version__)
     sys.stdout.flush()
 
     tty.setraw(sys.stdin.fileno(), termios.TCSADRAIN)
@@ -59,6 +61,8 @@ def main():
 
     if not cmd.startswith('CONFIRMED#'):
         handle_error('Unknown command: %s' % cmd)
+
+    send_succ('OK')
 
     try:
         recv_files(dest_path)

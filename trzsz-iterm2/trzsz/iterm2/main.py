@@ -63,7 +63,7 @@ class ProgressCallback(Callback):
             return
         try:
             self._update_progress(0)
-        except IOError:
+        except EnvironmentError:
             send_exit(False, 'Stopped')
 
     def on_size(self, size):
@@ -74,7 +74,7 @@ class ProgressCallback(Callback):
             return
         try:
             self._update_progress(step)
-        except IOError:
+        except EnvironmentError:
             if self.idx < self.num or step < self.size:
                 send_exit(False, 'Stopped')
 
@@ -84,7 +84,7 @@ class ProgressCallback(Callback):
         try:
             self.proc.stdin.write(('# %s %s finished.\n' % (self.action, name)).encode('utf8'))
             self.proc.stdin.flush()
-        except IOError:
+        except EnvironmentError:
             if self.idx < self.num:
                 send_exit(False, 'Stopped')
         if self.idx == self.num:
@@ -122,6 +122,7 @@ def download_files():
     check_path(dest_path)
 
     send_line('CMD', 'CONFIRMED#%s' % __version__)
+    check_succ(True)
 
     local_list = recv_files(dest_path, ProgressCallback('Download'))
 
@@ -156,6 +157,7 @@ def upload_files():
     check_files(file_list)
 
     send_line('CMD', 'CONFIRMED#%s' % __version__)
+    check_succ(True)
 
     remote_list = send_files(file_list, ProgressCallback('Upload'))
 
@@ -163,8 +165,8 @@ def upload_files():
 
 def main():
     try:
-        parser = argparse.ArgumentParser(description='iTerm2 coprocess of trzsz which similar to rz/sz ' \
-                                                     'but compatible with tmux (control mode).')
+        parser = argparse.ArgumentParser(description='iTerm2 coprocess of trzsz which similar to lrzsz ' \
+                                                     '( rz / sz ) but compatible with tmux.')
         parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) ' + __version__)
         parser.add_argument('mode', help='iTerm2 trigger parameter. (generally should be \\1)')
         args = parser.parse_args()

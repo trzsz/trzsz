@@ -1,6 +1,6 @@
 # trzsz
 
-trzsz is a simple file transfer tools, similar to lrzsz ( rz / sz ) but compatible with tmux (control mode).
+trzsz is a simple file transfer tools, similar to lrzsz ( rz / sz ) but compatible with tmux.
 
 which works with iTerm2 and has a nice progress bar.
 
@@ -18,7 +18,7 @@ Sometimes, I need to transfer some files between my laptop and the remote server
 
 Considering `laptop --> hostA --> hostB --> docker --> tmux ` , using scp to transfer files is inconvenience.
 
-[Tmux](https://github.com/tmux/tmux) is not going to support rz/sz ( [906](https://github.com/tmux/tmux/issues/906), [1439](https://github.com/tmux/tmux/issues/1439) ), and I found out that creating a new file transfer tools is much easier than patching tmux.
+[Tmux](https://github.com/tmux/tmux) is not going to support lrzsz ( rz / sz ) ( [906](https://github.com/tmux/tmux/issues/906), [1439](https://github.com/tmux/tmux/issues/1439) ), and I found out that creating a new file transfer tools is much easier than patching tmux.
 
 Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is not supporting a progress bar. Is there something wrong happened or just need more time?
 
@@ -68,7 +68,7 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   ```
   usage: trz [-h] [-v] [path]
 
-  Receive file(s), similar to rz but compatible with tmux (control mode).
+  Receive file(s), similar to rz but compatible with tmux.
 
   positional arguments:
     path           Path to save file(s). (default: current directory)
@@ -82,7 +82,7 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   ```
   usage: tsz [-h] [-v] file [file ...]
 
-  Send file(s), similar to sz but compatible with tmux (control mode).
+  Send file(s), similar to sz but compatible with tmux.
 
   positional arguments:
     file           File(s) to be sent.
