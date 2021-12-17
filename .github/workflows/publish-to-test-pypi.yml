@@ -1,0 +1,107 @@
+name: Publish trzsz to TestPyPI
+on: push
+jobs:
+  build-and-publish:
+    name: Build and publish trzsz to TestPyPI
+    runs-on: ubuntu-latest
+    outputs:
+      test_version: ${{ steps.test_version.outputs.version_number }}
+    steps:
+      - name: Checkout trzsz
+        uses: actions/checkout@master
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Install Python Dependencies
+        run: python3 -m pip install --upgrade setuptools wheel
+      - name: Update test version
+        id: test_version
+        run: python3 .github/workflows/update_test_version.py
+        working-directory: .
+      - name: Build trzsz
+        run: python3 setup.py sdist bdist_wheel
+        working-directory: .
+      - name: Build trzsz-libs
+        run: python3 setup.py sdist bdist_wheel
+        working-directory: trzsz-libs
+      - name: Build trzsz-svr
+        run: python3 setup.py sdist bdist_wheel
+        working-directory: trzsz-svr
+      - name: Build trzsz-iterm2
+        run: python3 setup.py sdist bdist_wheel
+        working-directory: trzsz-iterm2
+      - name: Publish trzsz to Test PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.TRZSZ_TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+          packages_dir: dist/
+      - name: Publish trzsz-libs to Test PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.TRZSZ_LIBS_TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+          packages_dir: trzsz-libs/dist/
+      - name: Publish trzsz-svr to Test PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.TRZSZ_SVR_TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+          packages_dir: trzsz-svr/dist/
+      - name: Publish trzsz-iterm2 to Test PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.TRZSZ_ITERM2_TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+          packages_dir: trzsz-iterm2/dist/
+  test-python2:
+    name: Install trzsz with Python2
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '2.x'
+      - name: Wait 10 minute
+        run: sleep 600
+      - name: Install trzsz-libs
+        run: pip install -i https://test.pypi.org/simple/ trzsz-libs==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Install trzsz-svr
+        run: pip install -i https://test.pypi.org/simple/ trzsz-svr==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Install trzsz-iterm2
+        run: pip install -i https://test.pypi.org/simple/ trzsz-iterm2==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Install trzsz
+        run: pip install -i https://test.pypi.org/simple/ trzsz==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Test trz
+        run: trz -v
+      - name: Test tsz
+        run: tsz -v
+      - name: Test trzsz-iterm2
+        run: trzsz-iterm2 -v
+  test-python3:
+    name: Install trzsz with Python3
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Wait 10 minute
+        run: sleep 600
+      - name: Install trzsz-libs
+        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz-libs==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Install trzsz-svr
+        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz-svr==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Install trzsz-iterm2
+        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz-iterm2==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Install trzsz
+        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Test trz
+        run: trz -v
+      - name: Test tsz
+        run: tsz -v
+      - name: Test trzsz-iterm2
+        run: trzsz-iterm2 -v

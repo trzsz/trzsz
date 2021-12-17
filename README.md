@@ -8,6 +8,7 @@ Website: [https://trzsz.github.io](https://trzsz.github.io)
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](https://choosealicense.com/licenses/mit/)
 [![PyPI trzsz](https://img.shields.io/pypi/v/trzsz?style=flat)](https://pypi.python.org/pypi/trzsz/)
+[![中文网站](https://img.shields.io/badge/%E4%B8%AD%E6%96%87-%E7%BD%91%E7%AB%99-blue?style=flat)](https://trzsz.github.io/cn/)
 
 
 ## Why?
@@ -16,7 +17,7 @@ I love to use [iTerm2 integrating with tmux](https://iterm2.com/documentation-tm
 
 Sometimes, I need to transfer some files between my laptop and the remote server.
 
-Considering `laptop --> hostA --> hostB --> docker --> tmux ` , using scp to transfer files is inconvenience.
+Considering `laptop -> hostA -> hostB -> docker -> tmux` , using scp to transfer files is inconvenience.
 
 [Tmux](https://github.com/tmux/tmux) is not going to support lrzsz ( rz / sz ) ( [906](https://github.com/tmux/tmux/issues/906), [1439](https://github.com/tmux/tmux/issues/1439) ), and I found out that creating a new file transfer tools is much easier than patching tmux.
 
@@ -38,13 +39,18 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 ### Server side
 
 * Install [trzsz-svr](https://pypi.org/project/trzsz-svr)
-  * `python3 -m pip install --upgrade trzsz-svr`
+  ```
+  sudo python3 -m pip install --upgrade trzsz-libs trzsz-svr
+  ```
 
 
 ### Client side
 
 * Install [trzsz-iterm2](https://pypi.org/project/trzsz-iterm2)
-  * `python3 -m pip install --upgrade trzsz-iterm2`
+  ```
+  sudo python3 -m pip install --upgrade trzsz-libs trzsz-iterm2
+  ```
+
 
 * Install [iTerm2](https://iterm2.com/index.html) and create a [Trigger](https://iterm2.com/documentation-triggers.html) as follows.
 
@@ -60,6 +66,10 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
 * `Optional` install [zenity](https://github.com/ncruces/zenity) for a nice progress bar.
   * should be placed at `/usr/local/bin/zenity`
+
+  ```
+  brew install ncruces/tap/zenity
+  ```
 
 
 ## Manual
