@@ -91,30 +91,32 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
 #### `trz` upload files to remote server
   ```
-  usage: trz [-h] [-v] [path]
+  usage: trz [-h] [-v] [-q] [path]
 
   Receive file(s), similar to rz but compatible with tmux.
 
   positional arguments:
-    path           Path to save file(s). (default: current directory)
+    path           path to save file(s). (default: current directory)
 
   optional arguments:
     -h, --help     show this help message and exit
     -v, --version  show program's version number and exit
+    -q, --quiet    quiet (hide progress bar)
   ```
 
 #### `tsz` download files from remote server
   ```
-  usage: tsz [-h] [-v] file [file ...]
+  usage: tsz [-h] [-v] [-q] file [file ...]
 
   Send file(s), similar to sz but compatible with tmux.
 
   positional arguments:
-    file           File(s) to be sent.
+    file           file(s) to be sent
 
   optional arguments:
     -h, --help     show this help message and exit
     -v, --version  show program's version number and exit
+    -q, --quiet    quiet (hide progress bar)
   ```
 
 ## Screenshot

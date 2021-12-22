@@ -22,6 +22,7 @@
 
 import os
 import sys
+import json
 import zlib
 import atexit
 import base64
@@ -45,30 +46,16 @@ def reset_stdin_tty():
 
 atexit.register(reset_stdin_tty)
 
-class FileError(Exception):
-    pass
-
-class SendError(Exception):
-    def __init__(self, typ, msg):
+class TrzszError(Exception):
+    def __init__(self, msg, typ=False):
         Exception.__init__(self, msg)
         self.typ = typ
         self.msg = msg
 
     def __str__(self):
         if self.typ:
-            return '[SendError] %s: %s' % (self.typ, self.msg)
-        return '[SendError] %s' % self.msg
-
-class RecvError(Exception):
-    def __init__(self, typ, msg):
-        Exception.__init__(self, msg)
-        self.typ = typ
-        self.msg = msg
-
-    def __str__(self):
-        if self.typ:
-            return '[RecvError] %s: %s' % (self.typ, self.msg)
-        return '[RecvError] %s' % self.msg
+            return '[TrzszError] %s: %s' % (self.typ, self.msg)
+        return '[TrzszError] %s' % self.msg
 
 class Callback(object):
     def on_num(self, num):
@@ -137,7 +124,7 @@ def check_succ(ignore_status_bar=False):
         if 'SUCC:' in s:
             return s.split('SUCC:')[-1]
     if typ != 'SUCC':
-        raise SendError(typ, buf)
+        raise TrzszError(buf, typ)
     return buf
 
 def send_succ(info):
@@ -149,10 +136,19 @@ def send_fail(info):
 def send_exit(succ, msg):
     clean_input(0.2)
     send_line('#EXIT', msg)
-    if succ:
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    sys.exit(0 if succ else 1)
+
+def send_config(quiet=False):
+    send_succ(json.dumps({'quiet': quiet}))
+
+def check_config():
+    config = check_succ(True)
+    if config == 'OK':
+        return {}
+    try:
+        return json.loads(config)
+    except ValueError:
+        raise TrzszError(config, 'JSON INVALID')
 
 def check_exit(succ):
     typ, buf = recv_line()
@@ -167,24 +163,24 @@ def recv_check(expect_typ, binary=False):
     if typ == '#EXIT':
         delay_exit(False, buf)
     if typ != expect_typ:
-        raise RecvError(typ, buf)
+        raise TrzszError(buf, typ)
     return buf
 
 def check_path(dest_path):
     if not os.path.isdir(dest_path):
-        raise FileError('Not a directory: %s' % dest_path)
+        raise TrzszError('Not a directory: %s' % dest_path)
     if not os.access(dest_path, os.W_OK):
-        raise FileError('No permission to write: %s' % dest_path)
+        raise TrzszError('No permission to write: %s' % dest_path)
     return True
 
 def check_files(file_list):
     for f in file_list:
         if not os.path.exists(f):
-            raise FileError('No such file: %s' % f)
+            raise TrzszError('No such file: %s' % f)
         if not os.path.isfile(f):
-            raise FileError('Not a regular file: %s' % f)
+            raise TrzszError('Not a regular file: %s' % f)
         if not os.access(f, os.R_OK):
-            raise FileError('No permission to read: %s' % f)
+            raise TrzszError('No permission to read: %s' % f)
     return True
 
 def check_tmux():
@@ -254,7 +250,7 @@ def get_new_name(path, name):
         new_name = '%s.%d' % (name, i)
         if not os.path.exists(os.path.join(path, new_name)):
             return new_name
-    raise RecvError(False, 'Fail to assign new file name')
+    raise TrzszError('Fail to assign new file name')
 
 def recv_files(dest_path, callback=None):
     num = int(recv_check('NUM'))
@@ -292,7 +288,7 @@ def recv_files(dest_path, callback=None):
         if digest == m.hexdigest():
             send_succ(digest)
         else:
-            raise RecvError(False, 'Check MD5 of %s failed' % name)
+            raise TrzszError('Check MD5 of %s failed' % name)
         if callback:
             callback.on_done(file_name)
         local_list.append(file_name)

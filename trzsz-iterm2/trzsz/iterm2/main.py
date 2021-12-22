@@ -97,7 +97,7 @@ def run_osascript(script):
     except subprocess.CalledProcessError as e:
         if b"Application can't be found." in e.output:
             sys.stderr.write(e.output + '\n')
-            raise Exception('Only supports iTerm2')
+            raise TrzszError('Only supports iTerm2')
         raise
 
 def download_files():
@@ -122,9 +122,10 @@ def download_files():
     check_path(dest_path)
 
     send_line('CMD', 'CONFIRMED#%s' % __version__)
-    check_succ(True)
+    config = check_config()
 
-    local_list = recv_files(dest_path, ProgressCallback('Download'))
+    callback = None if config.get('quiet', False) else ProgressCallback('Download')
+    local_list = recv_files(dest_path, callback)
 
     send_exit(True, 'Saved %s to %s' % (', '.join(local_list), dest_path))
 
@@ -157,9 +158,10 @@ def upload_files():
     check_files(file_list)
 
     send_line('CMD', 'CONFIRMED#%s' % __version__)
-    check_succ(True)
+    config = check_config()
 
-    remote_list = send_files(file_list, ProgressCallback('Upload'))
+    callback = None if config.get('quiet', False) else ProgressCallback('Upload')
+    remote_list = send_files(file_list, callback)
 
     send_exit(True, 'Received %s' % ', '.join(remote_list))
 
@@ -176,7 +178,7 @@ def main():
         elif args.mode.startswith(':TRZSZ:TRANSFER:R:'):
             upload_files()
         else:
-            raise Exception('Unknown transfer mode: %s' % args.mode)
+            raise TrzszError('Unknown transfer mode: %s' % args.mode)
     except Exception as e:
         traceback.print_exc()
         send_exit(False, str(e))

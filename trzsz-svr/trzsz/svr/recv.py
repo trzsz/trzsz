@@ -34,13 +34,14 @@ def handle_error(msg):
 def main():
     parser = ArgumentParser(description='Receive file(s), similar to rz but compatible with tmux.')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) ' + __version__)
-    parser.add_argument('path', nargs='?', default='.', help='Path to save file(s). (default: current directory)')
+    parser.add_argument('-q', '--quiet', action='store_true', help='quiet (hide progress bar)')
+    parser.add_argument('path', nargs='?', default='.', help='path to save file(s). (default: current directory)')
     args = parser.parse_args()
     dest_path = args.path
 
     try:
         check_path(dest_path)
-    except FileError as e:
+    except Exception as e:
         sys.stderr.write(str(e) + '\n')
         return
 
@@ -49,23 +50,21 @@ def main():
     sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:R:%s\n' % __version__)
     sys.stdout.flush()
 
-    tty.setraw(sys.stdin.fileno(), termios.TCSADRAIN)
-
     try:
+        tty.setraw(sys.stdin.fileno(), termios.TCSADRAIN)
+
         cmd = recv_check('CMD')
-    except RecvError as e:
-        handle_error(str(e))
 
-    if cmd == 'CANCELLED':
-        delay_exit(False, 'Cancelled')
+        if cmd == 'CANCELLED':
+            delay_exit(False, 'Cancelled')
 
-    if not cmd.startswith('CONFIRMED#'):
-        handle_error('Unknown command: %s' % cmd)
+        if not cmd.startswith('CONFIRMED#'):
+            handle_error('Unknown command: %s' % cmd)
 
-    send_succ('OK')
+        send_config(args.quiet)
 
-    try:
         recv_files(dest_path)
+
     except Exception as e:
         handle_error(str(e))
 
