@@ -50,6 +50,10 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   ```
   sudo python3 -m pip install --upgrade trzsz-libs trzsz-iterm2
   ```
+  After installation, `which trzsz-iterm2` should output `/usr/local/bin/trzsz-iterm2`, if not:
+  * `which trzsz-iterm2` shows nothing, check the output of the previous installation.
+  * `which trzsz-iterm2` shows another path, create a soft link:\
+    `sudo ln -sv $(which trzsz-iterm2) /usr/local/bin/trzsz-iterm2`
 
 
 * Install [iTerm2](https://iterm2.com/index.html) and create a [Trigger](https://iterm2.com/documentation-triggers.html) as follows.
@@ -65,11 +69,13 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
 
 * `Optional` install [zenity](https://github.com/ncruces/zenity) for a nice progress bar.
-  * should be placed at `/usr/local/bin/zenity`
-
   ```
   brew install ncruces/tap/zenity
   ```
+  After installation, `which zenity` should output `/usr/local/bin/zenity`, if not:
+  * `which zenity` shows nothing, check the output of the previous installation.
+  * `which zenity` shows another path, create a soft link:\
+    `sudo ln -sv $(which zenity) /usr/local/bin/zenity`
 
 
 ## Manual
