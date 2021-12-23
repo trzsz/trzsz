@@ -31,6 +31,7 @@ import hashlib
 import termios
 import subprocess
 
+tmux_output_junk = False
 tmux_real_stdout = sys.stdout
 
 try:
@@ -104,8 +105,14 @@ def send_line(typ, buf):
     tmux_real_stdout.write('%s:%s\n' % (typ, enc))
     tmux_real_stdout.flush()
 
-def recv_line(binary=False):
+def recv_line(expect_typ, binary=False, may_has_junk=False):
     s = sys.stdin.readline()
+    if tmux_output_junk or may_has_junk:
+        while s[-2] == '\r':
+            s += sys.stdin.readline()
+        flag = expect_typ + ':'
+        if flag in s:
+            s = flag + s.split(flag)[-1]
     try:
         typ, buf = s.split(':', 1)
         dec = zlib.decompress(base64.b64decode(buf))
@@ -113,16 +120,10 @@ def recv_line(binary=False):
     except (ValueError, TypeError, zlib.error):
         return False, s
 
-def check_succ(ignore_status_bar=False):
-    typ, buf = recv_line()
+def check_succ():
+    typ, buf = recv_line('SUCC')
     if typ == '#EXIT':
         delay_exit(False, buf)
-    if ignore_status_bar and typ != 'SUCC':
-        s = buf if not typ else (typ + ':' + buf)
-        while s[-2] == '\r':
-            s += sys.stdin.readline()
-        if 'SUCC:' in s:
-            return s.split('SUCC:')[-1]
     if typ != 'SUCC':
         raise TrzszError(buf, typ)
     return buf
@@ -139,19 +140,29 @@ def send_exit(succ, msg):
     sys.exit(0 if succ else 1)
 
 def send_config(quiet=False):
-    send_succ(json.dumps({'quiet': quiet}))
+    config = {}
+    if quiet:
+        config['quiet'] = True
+    if 'TRZSZ_NEW_WINDOW' in os.environ:
+        config['tmux_output_junk'] = True
+    send_succ(json.dumps(config))
 
 def check_config():
-    config = check_succ(True)
-    if config == 'OK':
+    typ, cfg = recv_line('SUCC', False, True)
+    if typ != 'SUCC':
+        raise TrzszError(cfg, typ)
+    if cfg == 'OK':
         return {}
     try:
-        return json.loads(config)
+        config = json.loads(cfg)
     except ValueError:
-        raise TrzszError(config, 'JSON INVALID')
+        raise TrzszError(cfg, 'JSON INVALID')
+    global tmux_output_junk
+    tmux_output_junk = config.get('tmux_output_junk', False)
+    return config
 
 def check_exit(succ):
-    typ, buf = recv_line()
+    typ, buf = recv_line('#EXIT')
     delay_exit(succ and typ == '#EXIT', buf)
 
 def send_check(typ, buf):
@@ -159,7 +170,7 @@ def send_check(typ, buf):
     return check_succ()
 
 def recv_check(expect_typ, binary=False):
-    typ, buf = recv_line(binary)
+    typ, buf = recv_line(expect_typ, binary)
     if typ == '#EXIT':
         delay_exit(False, buf)
     if typ != expect_typ:
