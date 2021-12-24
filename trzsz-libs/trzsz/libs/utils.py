@@ -197,23 +197,13 @@ def check_files(file_list):
 def check_tmux():
     if 'TMUX' not in os.environ:
         return
-    try:
-        tmux_session = int(os.environ['TMUX'].split(',')[2])
-        output = subprocess.check_output(['tmux', 'lsc', '-t', str(tmux_session), '-F', '#{client_tty} ' \
-                                         '#{client_control_mode}'], stderr=subprocess.STDOUT)
-        tmux_client = output.decode('utf8').strip().split('\n')
-        if len(tmux_client) > 1:
-            sys.stderr.write('Too many clients attached to the tmux session\n')
-            subprocess.call(['tmux', 'lsc'])
-            sys.exit(1)
-        tty, mode = tmux_client[0].split()
-    except (IndexError, ValueError, EnvironmentError, subprocess.CalledProcessError):
-        return
-    if not os.path.exists(tty) or mode != '0':
+    output = subprocess.check_output(['tmux', 'display-message', '-p', '#{client_tty}:#{client_control_mode}'])
+    tmux_tty, control_mode = output.decode('utf8').strip().split(':')
+    if control_mode == '1' or (not tmux_tty.startswith('/')) or (not os.path.exists(tmux_tty)):
         return
     if 'TRZSZ_NEW_WINDOW' in os.environ:
         global tmux_real_stdout
-        tmux_real_stdout = open(tty, 'w')
+        tmux_real_stdout = open(tmux_tty, 'w')
     else:
         sys.exit(subprocess.call(['tmux', 'new-window', 'TRZSZ_NEW_WINDOW=1 ' + ' '.join(sys.argv)]))
 
