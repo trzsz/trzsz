@@ -94,8 +94,6 @@ def delay_exit(succ, msg):
         sys.stdout.write(msg + '\n')
     else:
         sys.stderr.write(msg + '\n')
-    if 'TRZSZ_NEW_WINDOW' in os.environ:
-        os.system("""bash -c 'read -s -n 1 -p "Press any key to continue..."'""")
     sys.exit(0 if succ else 1)
 
 def send_line(typ, buf):
@@ -143,7 +141,7 @@ def send_config(quiet=False):
     config = {}
     if quiet:
         config['quiet'] = True
-    if 'TRZSZ_NEW_WINDOW' in os.environ:
+    if tmux_real_stdout != sys.stdout:
         config['tmux_output_junk'] = True
     send_succ(json.dumps(config))
 
@@ -201,11 +199,9 @@ def check_tmux():
     tmux_tty, control_mode = output.decode('utf8').strip().split(':')
     if control_mode == '1' or (not tmux_tty.startswith('/')) or (not os.path.exists(tmux_tty)):
         return
-    if 'TRZSZ_NEW_WINDOW' in os.environ:
-        global tmux_real_stdout
-        tmux_real_stdout = open(tmux_tty, 'w')
-    else:
-        sys.exit(subprocess.call(['tmux', 'new-window', 'TRZSZ_NEW_WINDOW=1 ' + ' '.join(sys.argv)]))
+    global tmux_real_stdout
+    tmux_real_stdout = open(tmux_tty, 'w')
+    sys.stdout.write('\n\x1b[1A\x1b[0J')
 
 def send_files(file_list, callback=None):
     send_check('NUM', str(len(file_list)))
