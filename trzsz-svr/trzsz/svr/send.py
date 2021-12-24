@@ -29,12 +29,13 @@ from trzsz.svr.__version__ import __version__
 
 def handle_error(msg):
     send_fail(msg)
-    check_exit(False)
+    delay_exit(False, msg)
 
 def main():
     parser = ArgumentParser(description='Send file(s), similar to sz but compatible with tmux.')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) ' + __version__)
     parser.add_argument('-q', '--quiet', action='store_true', help='quiet (hide progress bar)')
+    parser.add_argument('-y', '--overwrite', action='store_true', help='overwrite existing file(s)')
     parser.add_argument('file', nargs='+', help='file(s) to be sent')
     args = parser.parse_args()
     file_list = args.file
@@ -61,14 +62,14 @@ def main():
         if not cmd.startswith('CONFIRMED#'):
             handle_error('Unknown command: %s' % cmd)
 
-        send_config(args.quiet)
+        send_config(args.quiet, args.overwrite)
 
         send_files(file_list)
 
     except Exception as e:
         handle_error(str(e))
 
-    check_exit(True)
+    check_exit()
 
 if __name__ == '__main__':
     main()

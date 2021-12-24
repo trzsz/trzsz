@@ -137,10 +137,12 @@ def send_exit(succ, msg):
     send_line('#EXIT', msg)
     sys.exit(0 if succ else 1)
 
-def send_config(quiet=False):
+def send_config(quiet=False, overwrite=False):
     config = {}
     if quiet:
         config['quiet'] = True
+    if overwrite:
+        config['overwrite'] = True
     if tmux_real_stdout != sys.stdout:
         config['tmux_output_junk'] = True
     send_succ(json.dumps(config))
@@ -159,9 +161,9 @@ def check_config():
     tmux_output_junk = config.get('tmux_output_junk', False)
     return config
 
-def check_exit(succ):
+def check_exit():
     typ, buf = recv_line('#EXIT')
-    delay_exit(succ and typ == '#EXIT', buf)
+    delay_exit(typ == '#EXIT', buf)
 
 def send_check(typ, buf):
     send_line(typ, buf)
@@ -249,7 +251,7 @@ def get_new_name(path, name):
             return new_name
     raise TrzszError('Fail to assign new file name')
 
-def recv_files(dest_path, callback=None):
+def recv_files(dest_path, callback=None, overwrite=False):
     num = int(recv_check('NUM'))
     send_succ(str(num))
     if callback:
@@ -259,7 +261,7 @@ def recv_files(dest_path, callback=None):
 
     for i in range(num):
         name = recv_check('NAME')
-        file_name = get_new_name(dest_path, name)
+        file_name = name if overwrite else get_new_name(dest_path, name)
         send_succ(file_name)
         if callback:
             callback.on_name(name)

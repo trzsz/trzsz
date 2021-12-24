@@ -125,7 +125,8 @@ def download_files():
     config = check_config()
 
     callback = None if config.get('quiet', False) else ProgressCallback('Download')
-    local_list = recv_files(dest_path, callback)
+    overwrite = config.get('overwrite', False)
+    local_list = recv_files(dest_path, callback, overwrite)
 
     send_exit(True, 'Saved %s to %s' % (', '.join(local_list), dest_path))
 
