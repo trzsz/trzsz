@@ -81,6 +81,12 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   ```
   brew install ncruces/tap/zenity
   ```
+  * If `Mac M1` install fails, try to install with `go`:
+    ```
+    brew install go
+    go install 'github.com/ncruces/zenity/cmd/zenity@latest'
+    sudo cp ~/go/bin/zenity /usr/local/bin/zenity
+    ```
   * After installation, `which zenity` should output `/usr/local/bin/zenity`, if not:
     * `which zenity` shows nothing, check the output of the previous installation.
     * `which zenity` shows another path, create a soft link:\
@@ -120,6 +126,11 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
     -q, --quiet      quiet (hide progress bar)
     -y, --overwrite  overwrite existing file(s)
   ```
+
+#### Trouble handling
+* If an error occurs, and `trzsz` is hanging up.
+  1. Press `Command + Option + Shift + R` to stop [iTerm2 Coprocesses](https://iterm2.com/documentation-coprocesses.html).
+  2. Press `Control + j` to stop `trz` or `tsz` process on the server.
 
 ## Screenshot
 
