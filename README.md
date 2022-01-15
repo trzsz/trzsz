@@ -70,11 +70,12 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
   | Name | Value | Note |
   | ---- | ----- | ---- |
-  | Regular Expression | <span style="white-space: nowrap;">`:(:TRZSZ:TRANSFER:[SR]:\d+\.\d+\.\d+:\d+)`</span> | <!-- avoid triple click copy a newline --> One line and no space at the end |
+  | Regular Expression | `:(:TRZSZ:TRANSFER:[SR]:\d+\.\d+\.\d+:\d+)` | <!-- avoid triple click copy a newline --> No space at the end |
   | Action | `Run Silent Coprocess` | |
-  | Parameters | <span style="white-space: nowrap;">`/usr/local/bin/trzsz-iterm2 \1`</span> | <!-- avoid triple click copy a newline --> One line and no space at the end |
+  | Parameters | `/usr/local/bin/trzsz-iterm2 \1` | <!-- avoid triple click copy a newline --> No space at the end |
   | Enabled | ✅ | Checked |
-  | Use interpolated strings for parameters | ❎ | Unchecked |
+
+  * Don't check the `Use interpolated strings for parameters` at the bottom.
 
   * iTerm2 Trigger configuration allows input multiple lines, but only shows one line. Make sure don't copy a newline into it.
 
@@ -155,16 +156,16 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
 * If `trz -b` or `tsz -b` binary transfer fails, and login to server using `expect`.
   1. Try to `export LC_CTYPE=C` before the `expect` script. e.g.:
-    ```
-    #!/bin/sh
-    export LC_CTYPE=C
-    expect -c '
-      spawn ssh xxx
-      expect "xxx: "
-      send "xxx\n"
-      interact
-    '
-    ```
+  ```
+  #!/bin/sh
+  export LC_CTYPE=C
+  expect -c '
+    spawn ssh xxx
+    expect "xxx: "
+    send "xxx\n"
+    interact
+  '
+  ```
 
 ## Screenshot
 
