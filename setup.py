@@ -47,9 +47,9 @@ classifiers = [
 ]
 
 install_requires = [
-    'trzsz-libs >= ' + version,
-    'trzsz-svr >= ' + version,
-    'trzsz-iterm2 >= ' + version,
+    'trzsz-libs == ' + version,
+    'trzsz-svr == ' + version,
+    'trzsz-iterm2 == ' + version,
 ]
 
 setup(

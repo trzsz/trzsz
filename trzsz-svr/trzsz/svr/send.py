@@ -22,54 +22,64 @@
 
 import sys
 import tty
+import time
 import termios
-from argparse import ArgumentParser
+import argparse
 from trzsz.libs.utils import *
 from trzsz.svr.__version__ import __version__
 
-def handle_error(msg):
-    send_fail(msg)
-    delay_exit(False, msg)
-
 def main():
-    parser = ArgumentParser(description='Send file(s), similar to sz but compatible with tmux.')
+    parser = argparse.ArgumentParser(description='Send file(s), similar to sz but compatible with tmux.',
+                                     formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) ' + __version__)
     parser.add_argument('-q', '--quiet', action='store_true', help='quiet (hide progress bar)')
-    parser.add_argument('-y', '--overwrite', action='store_true', help='overwrite existing file(s)')
-    parser.add_argument('file', nargs='+', help='file(s) to be sent')
+    parser.add_argument('-y', '--overwrite', action='store_true', help='yes, overwrite existing file(s)')
+    parser.add_argument('-b', '--binary', action='store_true', help='binary transfer mode, faster for binary files')
+    parser.add_argument('-e', '--escape', action='store_true', help='escape all known control characters')
+    parser.add_argument('-B', '--bufsize', min_size='1K', max_size='100M', default='1M', action=BufferSizeParser,
+                        metavar='N', help='buffer chunk size ( 1K <= N <= 100M ). (default: 1M)')
+    parser.add_argument('-t', '--timeout', type=int, default=100, metavar='N',
+                        help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 100)')
+    parser.add_argument('file', nargs='+', type=convert_to_unicode, help='file(s) to be sent')
     args = parser.parse_args()
     file_list = args.file
 
     try:
-        check_files(file_list)
-    except Exception as e:
+        check_files_readable(file_list)
+    except TrzszError as e:
         sys.stderr.write(str(e) + '\n')
         return
 
-    check_tmux()
+    tmux_mode = check_tmux()
+    if tmux_mode == TMUX_CONTROL_MODE and args.binary:
+        sys.stdout.write('Binary download in tmux control mode is slower, auto switch to base64 mode.\n')
+        args.binary = False
+    if tmux_mode == TMUX_NORMAL_MODE:
+        sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < get_columns() < 40 else '\n\x1b[1A\x1b[0J')
 
-    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:S:%s\n' % __version__)
+    unique_id = str(int(time.time() * 1000) if tmux_mode == TMUX_NORMAL_MODE else 0)[::-1]
+    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:S:%s:%s\n' % (__version__, unique_id))
     sys.stdout.flush()
 
     try:
+        reconfigure_stdin()
         tty.setraw(sys.stdin.fileno(), termios.TCSADRAIN)
 
-        cmd = recv_check('CMD')
+        action = recv_action()
 
-        if cmd == 'CANCELLED':
+        if not action.get('confirm', False):
             delay_exit(False, 'Cancelled')
 
-        if not cmd.startswith('CONFIRMED#'):
-            handle_error('Unknown command: %s' % cmd)
+        escape_chars = []
 
-        send_config(args.quiet, args.overwrite)
+        send_config(args, escape_chars)
 
-        send_files(file_list)
+        send_files(file_list, None, args.binary, escape_chars, args.bufsize)
+
+        check_exit()
 
     except Exception as e:
-        handle_error(str(e))
-
-    check_exit()
+        fail_exit(e, True)
 
 if __name__ == '__main__':
     main()

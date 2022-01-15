@@ -63,7 +63,7 @@ setup(
     long_description                = long_description,
     long_description_content_type   = 'text/markdown',
     url                             = 'https://trzsz.github.io',
-    install_requires                = [ 'trzsz-libs >= ' + version ],
+    install_requires                = [ 'trzsz-libs == ' + version ],
     license                         = 'MIT License',
     classifiers                     = classifiers,
     entry_points                    = entry_points,
