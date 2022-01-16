@@ -52,6 +52,16 @@ def main():
 
     tmux_mode = check_tmux()
     if tmux_mode != NO_TMUX and args.binary:
+        '''
+        1. In tmux 1.8 normal mode, supports binary upload actually. But it's old version.
+        2. In tmux 3.0a normal mode, tmux always runs with a UTF-8 locale for input.
+           Tmux will convert binary data to UTF-8 encoding, and no option to change it.
+           Try to convert the UTF-8 encoding data back to original, but fails in some case.
+           Besides, don't know how to detect the input encoding of the running tmux version.
+           See LC_CTYPE in tmux manual: https://man7.org/linux/man-pages/man1/tmux.1.html
+        3. In tmux control mode, iTerm2 will ignore invisible characters, or something else.
+           While sending the binary data, iTerm2 doesn't send 'send-keys' commands to tmux.
+        '''
         sys.stdout.write('Binary upload in tmux is not support, auto switch to base64 mode.\n')
         args.binary = False
     if tmux_mode == TMUX_NORMAL_MODE:

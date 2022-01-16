@@ -52,6 +52,11 @@ def main():
 
     tmux_mode = check_tmux()
     if tmux_mode == TMUX_CONTROL_MODE and args.binary:
+        '''
+        1. In tmux control mode, tmux will convert some invisible characters to Octal text.
+           E.g., tmux will convert ascii '\0' to text "\000", which from 1 byte to 4 bytes.
+        2. Got some junk data from stdin in tmux control mode, e.g. '[?1;2c', don't know why.
+        '''
         sys.stdout.write('Binary download in tmux control mode is slower, auto switch to base64 mode.\n')
         args.binary = False
     if tmux_mode == TMUX_NORMAL_MODE:
