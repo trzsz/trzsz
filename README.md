@@ -77,6 +77,8 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
   * Don't check the `Use interpolated strings for parameters` at the bottom.
 
+  * Note that the `Trigger` should be configured for each `Profile` in use.
+
   * iTerm2 Trigger configuration allows input multiple lines, but only shows one line. Make sure don't copy a newline into it.
 
   ![iTerm2 Trigger configuration](https://trzsz.github.io/images/config.jpg)
@@ -143,29 +145,33 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   ```
 
 #### Trouble shooting
+* If `tmux` is not running on the remote server, but on the local mac, or on a middle server.
+  * Since `trzsz` can't find the `tmux` process on the server, have to use the `tmux -CC` control mode.
+  * About how to use the `tmux -CC` control mode, please refer to [iTerm2 tmux Integration](https://trzsz.github.io/tmuxcc).
+
 * If an error occurs, and `trzsz` is hanging up.
-  1. Press `Command + Option + Shift + R` to stop [iTerm2 Coprocesses](https://iterm2.com/documentation-coprocesses.html).
-  2. Press `Control + j` to stop `trz` or `tsz` process on the server.
+  * Press `Command + Option + Shift + R` to stop [iTerm2 Coprocesses](https://iterm2.com/documentation-coprocesses.html).
+  * Press `Control + j` to stop `trz` or `tsz` process on the server.
 
 * If `trz -b` binary upload fails, and login to server using `telnet` or `docker exec`.
-  1. Try to escape all known control characters, e.g., `trz -eb`.
+  * Try to escape all known control characters, e.g., `trz -eb`.
 
 * If `trz -b` binary upload fails, and the server is using `Python3 < 3.7`.
-  1. `Python3 < 3.7` supports base64 mode, just don't use `trz -b`, use `trz` instead.
-  2. If you want to use `trz -b` binary upload, upgrade Python3 to above 3.7, or use Python2.
+  * `Python3 < 3.7` supports base64 mode, just don't use `trz -b`, use `trz` instead.
+  * If you want to use `trz -b` binary upload, upgrade Python3 to above 3.7, or use Python2.
 
 * If `trz -b` or `tsz -b` binary transfer fails, and login to server using `expect`.
-  1. Try to `export LC_CTYPE=C` before the `expect` script. e.g.:
-  ```
-  #!/bin/sh
-  export LC_CTYPE=C
-  expect -c '
-    spawn ssh xxx
-    expect "xxx: "
-    send "xxx\n"
-    interact
-  '
-  ```
+  * Try to `export LC_CTYPE=C` before the `expect` script. e.g.:
+    ```
+    #!/bin/sh
+    export LC_CTYPE=C
+    expect -c '
+      spawn ssh xxx
+      expect "xxx: "
+      send "xxx\n"
+      interact
+    '
+    ```
 
 ## Screenshot
 
