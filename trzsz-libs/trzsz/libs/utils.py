@@ -170,11 +170,22 @@ def send_line(typ, buf):
     tmux_real_stdout.write('#%s:%s\n' % (typ, buf))
     tmux_real_stdout.flush()
 
+def read_line():
+    s = ''
+    while True:
+        c = sys.stdin.read(1)
+        if c == '\n':
+            break
+        elif c == '\x03':
+            delay_exit(False, 'Interrupted')
+        s += c
+    return s
+
 def recv_line(expect_typ, may_has_junk=False):
-    s = sys.stdin.readline()
+    s = read_line()
     if tmux_output_junk or may_has_junk:
-        while s[-2] == '\r':
-            s += sys.stdin.readline()
+        while s[-1] == '\r':
+            s += read_line()
         flag = '#' + expect_typ + ':'
         if flag in s:
             s = flag + s.split(flag)[-1]
@@ -316,6 +327,11 @@ def recv_config():
     global tmux_output_junk
     tmux_output_junk = config.get('tmux_output_junk', False)
     return config
+
+def terminate(_signum, _frame):
+    delay_exit(False, 'Terminated')
+
+signal.signal(signal.SIGTERM, terminate)
 
 def delay_exit(succ, msg):
     clean_input(0.2)

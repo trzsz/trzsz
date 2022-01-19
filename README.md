@@ -150,8 +150,8 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   * About how to use the `tmux -CC` control mode, please refer to [iTerm2 tmux Integration](https://trzsz.github.io/tmuxcc).
 
 * If an error occurs, and `trzsz` is hanging up.
-  * Press `Command + Option + Shift + R` to stop [iTerm2 Coprocesses](https://iterm2.com/documentation-coprocesses.html).
-  * Press `Control + j` to stop `trz` or `tsz` process on the server.
+  * Press `command + option + shift + r` to stop [iTerm2 Coprocesses](https://iterm2.com/documentation-coprocesses.html).
+  * Press `control + c` to stop `trz` or `tsz` process on the server.
 
 * If `trz -b` binary upload fails, and login to server using `telnet` or `docker exec`.
   * Try to escape all known control characters, e.g., `trz -eb`.
