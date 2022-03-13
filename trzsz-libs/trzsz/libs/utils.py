@@ -95,7 +95,7 @@ class TrzszError(Exception):
             return self.decode_remote_msg()
         if self.typ:
             return '[TrzszError] %s: %s' % (self.typ, self.msg)
-        return '[TrzszError] %s' % self.msg
+        return self.msg
 
 class TrzszCallback(object):
     def on_num(self, num):
@@ -299,14 +299,14 @@ def recv_json(typ, may_has_junk=False):
         raise TrzszError(dic, str(e))
 
 def send_action(confirm, version):
-    action = {'confirm': confirm, 'version': version}
+    action = {'lang': 'py', 'confirm': confirm, 'version': version}
     send_json('ACT', action)
 
 def recv_action():
     return recv_json('ACT')
 
 def send_config(args, escape_chars):
-    config = {}
+    config = {'lang': 'py'}
     if args.quiet:
         config['quiet'] = True
     if args.binary:

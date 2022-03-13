@@ -31,7 +31,7 @@ with open('README.md', 'r') as f:
     long_description = f.read()
 
 classifiers = [
-    'Development Status :: 4 - Beta',
+    'Development Status :: 5 - Production/Stable',
     'Environment :: Console',
     'Intended Audience :: Developers',
     'Intended Audience :: Science/Research',
@@ -70,6 +70,6 @@ setup(
     keywords                        = 'trzsz trz tsz lrzsz rz sz tmux iTerm2 progressbar',
     zip_safe                        = False,
     description                     = 'trzsz is a simple file transfer tools, ' \
-                                      'similar to lrzsz ( rz / sz ) but compatible with tmux, ' \
+                                      'similar to lrzsz ( rz / sz ) and compatible with tmux, ' \
                                       'which works with iTerm2 and has a nice progress bar.',
 )

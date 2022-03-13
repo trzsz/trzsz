@@ -29,9 +29,9 @@ from trzsz.libs.utils import *
 from trzsz.svr.__version__ import __version__
 
 def main():
-    parser = argparse.ArgumentParser(description='Receive file(s), similar to rz but compatible with tmux.',
+    parser = argparse.ArgumentParser(description='Receive file(s), similar to rz and compatible with tmux.',
                                      formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) ' + __version__)
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) py ' + __version__)
     parser.add_argument('-q', '--quiet', action='store_true', help='quiet (hide progress bar)')
     parser.add_argument('-y', '--overwrite', action='store_true', help='yes, overwrite existing file(s)')
     parser.add_argument('-b', '--binary', action='store_true', help='binary transfer mode, faster for binary files')
@@ -72,13 +72,17 @@ def main():
     sys.stdout.flush()
 
     try:
-        reconfigure_stdin()
         tty.setraw(sys.stdin.fileno(), termios.TCSADRAIN)
+        reconfigure_stdin()
 
         action = recv_action()
 
         if not action.get('confirm', False):
             delay_exit(False, 'Cancelled')
+
+        # check if the client doesn't support binary mode
+        if args.binary and action.get('binary') is False:
+            args.binary = False
 
         escape_chars = get_escape_chars(args.escape)
 

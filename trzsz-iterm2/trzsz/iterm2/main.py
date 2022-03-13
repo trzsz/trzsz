@@ -208,8 +208,8 @@ def unique_id_exists(unique_id):
 def main():
     try:
         parser = argparse.ArgumentParser(description='iTerm2 coprocess of trzsz which similar to lrzsz ' \
-                                                     '( rz / sz ) but compatible with tmux.')
-        parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) ' + __version__)
+                                                     '( rz / sz ) and compatible with tmux.')
+        parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) py ' + __version__)
         parser.add_argument('mode', help='iTerm2 trigger parameter. (generally should be \\1)')
         args = parser.parse_args()
 

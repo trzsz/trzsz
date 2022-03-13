@@ -1,5 +1,8 @@
 name: Publish trzsz to TestPyPI
-on: push
+on:
+  push:
+    branches:
+      - dev
 jobs:
   build-and-publish:
     name: Build and publish trzsz to TestPyPI

@@ -1,8 +1,6 @@
 # trzsz
 
-trzsz is a simple file transfer tools, similar to lrzsz ( rz / sz ) but compatible with tmux.
-
-which works with iTerm2 and has a nice progress bar.
+`trzsz` ( trz / tsz ) is a simple file transfer tools, similar to `lrzsz` ( rz / sz ), and compatible with `tmux`.
 
 Website: [https://trzsz.github.io](https://trzsz.github.io)
 
@@ -13,100 +11,61 @@ Website: [https://trzsz.github.io](https://trzsz.github.io)
 
 ## Why?
 
-I love to use [iTerm2 integrating with tmux](https://iterm2.com/documentation-tmux-integration.html) to manage terminal sessions.
+Considering `laptop -> hostA -> hostB -> docker -> tmux`, using `scp` or `sftp` is inconvenience.
 
-Sometimes, I need to transfer some files between my laptop and the remote server.
+In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's not compatible with `tmux`.
 
-Considering `laptop -> hostA -> hostB -> docker -> tmux` , using scp to transfer files is inconvenience.
-
-[Tmux](https://github.com/tmux/tmux) is not going to support lrzsz ( rz / sz ) ( [906](https://github.com/tmux/tmux/issues/906), [1439](https://github.com/tmux/tmux/issues/1439) ), and I found out that creating a new file transfer tools is much easier than patching tmux.
-
-Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is not supporting a progress bar. Is there something wrong happened or just need more time?
-
-
-## Requirements
-* [Python](https://www.python.org/)
-  * Python’s standard library is good enough.
-* [iTerm2](https://iterm2.com/index.html)
-  * [Tmux Integration](https://iterm2.com/documentation-tmux-integration.html) and [Coprocesses](https://iterm2.com/documentation-coprocesses.html) are so cool.
-  * `btw` without tmux works too.
-* [zenity](https://github.com/ncruces/zenity)
-  * Optional for a nice progress bar.
+`tmux` is not going to support rz / sz ( [906](https://github.com/tmux/tmux/issues/906), [1439](https://github.com/tmux/tmux/issues/1439) ), and creating a new tools is much easier than patching `tmux`.
 
 
 ## Installation
 
-### Server side
+### On the server
 
-#### Install [trzsz-svr](https://pypi.org/project/trzsz-svr)
+* With Python3
   ```
-  sudo python3 -m pip install --upgrade trzsz-libs trzsz-svr
+  sudo python3 -m pip install trzsz
   ```
-  * Also supports Python2:
-    ```
-    sudo pip install --upgrade trzsz-libs trzsz-svr
-    ```
-  * Can be installed without `sudo`, but need to add the installation path ( may be `~/.local/bin` ) to the PATH environment.
-  * `trz -v` or `tsz -v` output the version of trzsz means successfully installed. Otherwise, check the output of the previous installation.
 
-
-### Client side
-
-#### Install [trzsz-iterm2](https://pypi.org/project/trzsz-iterm2)
+* With Python2
   ```
-  sudo python3 -m pip install --upgrade trzsz-libs trzsz-iterm2
+  sudo python2 -m pip install trzsz
   ```
-  * Also supports Python2:
-    ```
-    sudo pip install --upgrade trzsz-libs trzsz-iterm2
-    ```
-  * `which trzsz-iterm2` output `/usr/local/bin/trzsz-iterm2` means successfully installed. if not:
-    * `which trzsz-iterm2` shows nothing, check the output of the previous installation.
-    * `which trzsz-iterm2` shows another path, create a soft link:\
-      `sudo ln -sv $(which trzsz-iterm2) /usr/local/bin/trzsz-iterm2`
 
-
-#### Install [iTerm2](https://iterm2.com/index.html) and create a [Trigger](https://iterm2.com/documentation-triggers.html) as follows.
-
-  | Name | Value | Note |
-  | ---- | ----- | ---- |
-  | Regular Expression | `:(:TRZSZ:TRANSFER:[SR]:\d+\.\d+\.\d+:\d+)` | <!-- avoid triple click copy a newline --> No space at the end |
-  | Action | `Run Silent Coprocess` | |
-  | Parameters | `/usr/local/bin/trzsz-iterm2 \1` | <!-- avoid triple click copy a newline --> No space at the end |
-  | Enabled | ✅ | Checked |
-
-  * Don't check the `Use interpolated strings for parameters` at the bottom.
-
-  * Note that the `Trigger` should be configured for each `Profile` in use.
-
-  * iTerm2 Trigger configuration allows input multiple lines, but only shows one line. Make sure don't copy a newline into it.
-
-  ![iTerm2 Trigger configuration](https://trzsz.github.io/images/config.jpg)
-
-
-#### `Optional` install [zenity](https://github.com/ncruces/zenity) for a nice progress bar.
+* With Homebrew
   ```
-  brew install ncruces/tap/zenity
+  brew install trzsz
   ```
-  * If `Mac M1` install fails, try to install with `go`:
-    ```
-    brew install go
-    go install 'github.com/ncruces/zenity/cmd/zenity@latest'
-    sudo cp ~/go/bin/zenity /usr/local/bin/zenity
-    ```
-  * `which zenity` output `/usr/local/bin/zenity` means successfully installed. if not:
-    * `which zenity` shows nothing, check the output of the previous installation.
-    * `which zenity` shows another path, create a soft link:\
-      `sudo ln -sv $(which zenity) /usr/local/bin/zenity`
+
+<!--
+* With Node.js
+  *Under development ...*
+
+* With APT
+  *Under development ...*
+-->
+
+&nbsp;&nbsp;Can be installed without `sudo`, just add the installation path ( e.g. `~/.local/bin` ) to the `PATH` environment.
 
 
-## Manual
+### Supported Terminals
 
-#### `trz` upload files to remote server
+* [iTerm2](https://iterm2.com/) -- check [the trzsz-iterm2 installation](https://trzsz.github.io/iterm2).
+
+* [electerm](https://electerm.github.io/electerm/) -- upgrade to `1.19.0` or higher.
+
+* [trzsz.js](https://github.com/trzsz/trzsz.js) -- making webshell in browser and electron terminal supports `trzsz`.
+
+&nbsp;&nbsp;*Does your terminal supports `trzsz` as well? Please let me know. I would love to have it on the list.*
+
+
+## Trzsz Manual
+
+#### `trz` upload files to the remote server
   ```
   usage: trz [-h] [-v] [-q] [-y] [-b] [-e] [-B N] [-t N] [path]
 
-  Receive file(s), similar to rz but compatible with tmux.
+  Receive file(s), similar to rz and compatible with tmux.
 
   positional arguments:
     path               path to save file(s). (default: current directory)
@@ -123,11 +82,11 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
                        N <= 0 means never timeout. (default: 100)
   ```
 
-#### `tsz` download files from remote server
+#### `tsz` download files from the remote server
   ```
   usage: tsz [-h] [-v] [-q] [-y] [-b] [-e] [-B N] [-t N] file [file ...]
 
-  Send file(s), similar to sz but compatible with tmux.
+  Send file(s), similar to sz and compatible with tmux.
 
   positional arguments:
     file               file(s) to be sent
@@ -145,20 +104,20 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
   ```
 
 #### Trouble shooting
-* If `tmux` is not running on the remote server, but on the local mac, or on a middle server.
+* If `tmux` is not running on the remote server, but on the local computer, or on a middle server.
   * Since `trzsz` can't find the `tmux` process on the server, have to use the `tmux -CC` control mode.
   * About how to use the `tmux -CC` control mode, please refer to [iTerm2 tmux Integration](https://trzsz.github.io/tmuxcc).
 
 * If an error occurs, and `trzsz` is hanging up.
-  * Press `command + option + shift + r` to stop [iTerm2 Coprocesses](https://iterm2.com/documentation-coprocesses.html).
   * Press `control + c` to stop `trz` or `tsz` process on the server.
+  * For iTerm2 users, press `command + option + shift + r` to stop [iTerm2 Coprocesses](https://iterm2.com/documentation-coprocesses.html).
 
 * If `trz -b` binary upload fails, and login to server using `telnet` or `docker exec`.
   * Try to escape all known control characters, e.g., `trz -eb`.
 
 * If `trz -b` binary upload fails, and the server is using `Python3 < 3.7`.
   * `Python3 < 3.7` supports base64 mode, just don't use `trz -b`, use `trz` instead.
-  * If you want to use `trz -b` binary upload, upgrade Python3 to above 3.7, or use Python2.
+  * If you want to use `trz -b` binary upload, upgrade Python3 to 3.7 or higher, or use Python2.
 
 * If `trz -b` or `tsz -b` binary transfer fails, and login to server using `expect`.
   * Try to `export LC_CTYPE=C` before the `expect` script. e.g.:
@@ -175,11 +134,11 @@ Additionally, [iTerm2-zmodem](https://github.com/RobberPhex/iTerm2-zmodem) is no
 
 ## Screenshot
 
-#### Upload files to remote server
+#### Upload files to the remote server
 
   ![Upload files looks good](https://trzsz.github.io/images/upload.gif)
 
-#### Download files from remote server
+#### Download files from the remote server
 
   ![Download files looks good](https://trzsz.github.io/images/download.gif)
 
