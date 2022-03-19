@@ -148,7 +148,7 @@ class BufferSizeParser(argparse.Action):
             raise argparse.ArgumentError(self, 'greater than %s' % self.max_size)
         setattr(namespace, self.dest, buf_size)
 
-clean_timeout = 0.05
+clean_timeout = 0.1
 
 def clean_input(timeout):
     while True:
@@ -170,10 +170,21 @@ def send_line(typ, buf):
     tmux_real_stdout.write('#%s:%s\n' % (typ, buf))
     tmux_real_stdout.flush()
 
+trzsz_stopped = False
+interruptible = False
+
 def read_line():
+    global interruptible
     s = ''
     while True:
-        c = sys.stdin.read(1)
+        if trzsz_stopped:
+            raise TrzszError("Stopped", trace=False)
+        try:
+            interruptible = True
+            c = sys.stdin.read(1)
+            interruptible = False
+        except KeyboardInterrupt:
+            raise TrzszError("Stopped", trace=False)
         if c == '\n':
             break
         elif c == '\x03':
@@ -327,6 +338,13 @@ def recv_config():
     global tmux_output_junk
     tmux_output_junk = config.get('tmux_output_junk', False)
     return config
+
+def stop_transferring():
+    global clean_timeout, trzsz_stopped
+    trzsz_stopped = True
+    clean_timeout = 0.5
+    if interruptible:
+        os.kill(os.getpid(), signal.SIGINT)
 
 def terminate(_signum, _frame):
     delay_exit(False, 'Terminated')

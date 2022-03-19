@@ -40,7 +40,6 @@ classifiers = [
     'Natural Language :: English',
     'Operating System :: MacOS',
     'Programming Language :: Python',
-    'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 3',
     'Topic :: Utilities',
 ]
@@ -61,7 +60,8 @@ setup(
     long_description                = long_description,
     long_description_content_type   = 'text/markdown',
     url                             = 'https://trzsz.github.io',
-    install_requires                = [ 'trzsz-libs == ' + version ],
+    python_requires                 = '>=3.7',
+    install_requires                = [ 'trzsz-libs == ' + version, 'iterm2 >= 2.0' ],
     license                         = 'MIT License',
     classifiers                     = classifiers,
     entry_points                    = entry_points,
