@@ -23,81 +23,24 @@
 import os
 import re
 import sys
+import enum
+import asyncio
 import argparse
 import tempfile
+import threading
 import subprocess
+import iterm2
 from trzsz.libs.utils import *
 from trzsz.iterm2.__version__ import __version__
+from trzsz.iterm2.text_progress import TextProgressBar
+from trzsz.iterm2.zenity_progress import ZenityProgressBar
 
-progress_subprocess = None
+class ProgressType(enum.Enum):
+    text = 'text'
+    zenity = 'zenity'
 
-class ProgressCallback(TrzszCallback):
-    def __init__(self, action):
-        self.num = 0
-        self.idx = 0
-        self.name = ''
-        self.size = 0
-        self.proc = None
-        self.action = action
-        self.progress = None
-
-    def on_num(self, num):
-        self.num = num
-        try:
-            title = '%s file(s)' % self.action
-            self.proc = subprocess.Popen(['/usr/local/bin/zenity', '--progress', '--title', title, '--text', ''],
-                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            global progress_subprocess
-            progress_subprocess = self.proc
-        except EnvironmentError:
-            pass
-
-    def _update_progress(self, step):
-        percentage = step * 100 // self.size if self.size else 0
-        progress = '%d\n# %sing %s %d%% ( %d / %d ) ...\n' \
-                   % (percentage, self.action, self.name, percentage, self.idx, self.num)
-        if progress == self.progress:
-            return
-        self.progress = progress
-        self.proc.stdin.write(progress.encode('utf8'))
-        self.proc.stdin.flush()
-
-    def on_name(self, name):
-        self.idx += 1
-        self.size = 0
-        self.name = name
-        if not self.proc:
-            return
-        try:
-            self._update_progress(0)
-        except EnvironmentError:
-            send_exit(False, 'Stopped')
-
-    def on_size(self, size):
-        self.size = size
-
-    def on_step(self, step):
-        if not self.proc:
-            return
-        try:
-            self._update_progress(step)
-        except EnvironmentError:
-            if self.idx < self.num or step < self.size:
-                send_exit(False, 'Stopped')
-
-    def on_done(self, name):
-        if not self.proc:
-            return
-        try:
-            self.proc.stdin.write(('# %s %s finished.\n' % (self.action, name)).encode('utf8'))
-            self.proc.stdin.flush()
-        except EnvironmentError:
-            if self.idx < self.num:
-                send_exit(False, 'Stopped')
-        if self.idx == self.num:
-            self.proc.terminate()
-            global progress_subprocess
-            progress_subprocess = None
+    def __str__(self):
+        return self.value
 
 def run_osascript(script):
     try:
@@ -109,7 +52,7 @@ def run_osascript(script):
             raise TrzszError('Only supports iTerm2', trace=False)
         raise
 
-def download_files():
+def download_files(args, loop, session):
     dest_path = run_osascript('''(function () {
         const app = Application("iTerm2");
         app.includeStandardAdditions = true;
@@ -117,6 +60,8 @@ def download_files():
         try {
             var dest_path = app.chooseFolder({
                 withPrompt: "Choose a folder to save file(s)",
+                invisibles: true,
+                showingPackageContents: true,
             });
             return dest_path.toString();
         } catch (e) {
@@ -139,13 +84,19 @@ def download_files():
     timeout = config.get('timeout', 0)
     overwrite = config.get('overwrite', False)
     escape_chars = config.get('escape_chars', [])
-    callback = None if config.get('quiet', False) else ProgressCallback('Download')
+
+    callback = None
+    if not config.get('quiet', False):
+        if args.progress == ProgressType.text and loop and session:
+            callback = TextProgressBar(loop, session)
+        else:
+            callback = ZenityProgressBar('Download')
 
     local_list = recv_files(dest_path, callback, overwrite, binary, escape_chars, timeout)
 
     send_exit(True, 'Saved %s to %s' % (', '.join(local_list), dest_path))
 
-def upload_files():
+def upload_files(args, loop, session):
     file_list = run_osascript('''(function () {
         const app = Application("iTerm2");
         app.includeStandardAdditions = true;
@@ -153,6 +104,8 @@ def upload_files():
         try {
             var files = app.chooseFile({
                 withPrompt: "Choose some files to send",
+                invisibles: true,
+                showingPackageContents: true,
                 multipleSelectionsAllowed: true,
             });
             var file_list = "";
@@ -181,11 +134,59 @@ def upload_files():
     binary = config.get('binary', False)
     bufsize = config.get('bufsize', 10240)
     escape_chars = config.get('escape_chars', [])
-    callback = None if config.get('quiet', False) else ProgressCallback('Upload')
+
+    callback = None
+    if not config.get('quiet', False):
+        if args.progress == ProgressType.text and loop and session:
+            callback = TextProgressBar(loop, session)
+        else:
+            callback = ZenityProgressBar('Upload')
 
     remote_list = send_files(file_list, callback, binary, escape_chars, bufsize)
 
     send_exit(True, 'Received %s' % ', '.join(remote_list))
+
+async def keystroke_filter(connection, session):
+    all_keys = iterm2.KeystrokePattern()
+    all_keys.keycodes = list(iterm2.Keycode)
+    filter = iterm2.KeystrokeFilter(connection, [all_keys], session.session_id)
+    async with filter as mon:
+        while True:
+            await asyncio.sleep(1)
+
+async def keystroke_monitor(connection, session):
+    async with iterm2.KeystrokeMonitor(connection) as mon:
+        while True:
+            keystroke = await mon.async_get()
+            if keystroke.characters == '\x03':
+                app = await iterm2.async_get_app(connection)
+                current_session = app.current_window.current_tab.current_session
+                if current_session.session_id == session.session_id:
+                    stop_transferring()
+
+async def get_running_session(force):
+    session_id = os.environ.get('ITERM_SESSION_ID')
+    if not session_id:
+        if force:
+            raise TrzszError('Please upgrade iTerm2', trace=False)
+        return None, None
+    try:
+        connection = await iterm2.Connection.async_create()
+        app = await iterm2.async_get_app(connection)
+        current_session = app.current_window.current_tab.current_session
+        if current_session.session_id in session_id:
+            return connection, current_session
+        for win in app.windows:
+            for tab in win.tabs:
+                for session in tab.sessions:
+                    if session.session_id in session_id:
+                        return connection, session
+        if force:
+            raise TrzszError("Can't find the session in iTerm2", trace=False)
+    except ConnectionRefusedError:
+        if force:
+            raise TrzszError('Please enable iTerm2 Python API', trace=False)
+    return None, None
 
 def unique_id_exists(unique_id):
     if not unique_id or len(unique_id) < 8:
@@ -205,11 +206,17 @@ def unique_id_exists(unique_id):
         pass
     return False
 
+def side_thread(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
 def main():
     try:
         parser = argparse.ArgumentParser(description='iTerm2 coprocess of trzsz which similar to lrzsz ' \
                                                      '( rz / sz ) and compatible with tmux.')
         parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) py ' + __version__)
+        parser.add_argument('-p', '--progress', type=ProgressType, choices=list(ProgressType),
+                            default=ProgressType.zenity, help='the progress bar type. (default: zenity)')
         parser.add_argument('mode', help='iTerm2 trigger parameter. (generally should be \\1)')
         args = parser.parse_args()
 
@@ -224,16 +231,22 @@ def main():
         if unique_id_exists(unique_id):
             return
 
+        loop = asyncio.get_event_loop()
+        connection, session = loop.run_until_complete(get_running_session(args.progress == ProgressType.text))
+        if connection and session:
+            thread = threading.Thread(target=side_thread, args=(loop,), daemon=True)
+            thread.start()
+            asyncio.run_coroutine_threadsafe(keystroke_filter(connection, session), loop)
+            asyncio.run_coroutine_threadsafe(keystroke_monitor(connection, session), loop)
+
         if mode == 'S':
-            download_files()
+            download_files(args, loop, session)
         elif mode == 'R':
-            upload_files()
+            upload_files(args, loop, session)
         else:
             raise TrzszError('Unknown transfer mode: %s' % mode, trace=False)
 
     except Exception as e:
-        if progress_subprocess:
-            progress_subprocess.terminate()
         fail_exit(e, False)
 
 if __name__ == '__main__':
