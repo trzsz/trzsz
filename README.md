@@ -24,16 +24,17 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 * With Python3
   ```
-  sudo python3 -m pip install trzsz
+  sudo python3 -m pip install --upgrade trzsz
   ```
 
 * With Python2
   ```
-  sudo python2 -m pip install trzsz
+  sudo python2 -m pip install --upgrade trzsz
   ```
 
 * With Homebrew
   ```
+  brew update
   brew install trzsz
   ```
 
@@ -51,6 +52,8 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 ### Supported Terminals
 
 * [iTerm2](https://iterm2.com/) -- check [the trzsz-iterm2 installation](https://trzsz.github.io/iterm2).
+
+* [tabby](https://tabby.sh/) -- install [tabby-trzsz](https://github.com/trzsz/tabby-trzsz) plugin.
 
 * [electerm](https://electerm.github.io/electerm/) -- upgrade to `1.19.0` or higher.
 
@@ -134,13 +137,19 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 ## Screenshot
 
-#### Upload files to the remote server
+#### Using trzsz in iTerm2 with `text` progress bar
 
-  ![Upload files looks good](https://trzsz.github.io/images/upload.gif)
+  ![using trzsz in iTerm2 with text progress bar](https://trzsz.github.io/images/iterm2_text.gif)
 
-#### Download files from the remote server
 
-  ![Download files looks good](https://trzsz.github.io/images/download.gif)
+#### Using trzsz in iTerm2 with `zenity` progress bar
+
+  ![using trzsz in iTerm2 with zenity progress bar](https://trzsz.github.io/images/iterm2_zenity.gif)
+
+
+#### Using trzsz in tabby with `tabby-trzsz` plugin
+
+  ![using trzsz in tabby with tabby-trzsz plugin](https://trzsz.github.io/images/tabby_trzsz.gif)
 
 
 ## Contact
