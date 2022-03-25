@@ -154,4 +154,4 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 ## Contact
 
-Feel free to email me <lonnywong@qq.com> (same as my PayPal account, just in case you want to deduct🤑).
+Feel free to email me <lonnywong@qq.com>.
