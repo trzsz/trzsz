@@ -53,7 +53,7 @@ def run_osascript(script):
         raise
 
 def download_files(args, loop, session):
-    dest_path = run_osascript('''(function () {
+    dest_path = args.destpath or run_osascript('''(function () {
         const app = Application("iTerm2");
         app.includeStandardAdditions = true;
         app.activate();
@@ -217,6 +217,8 @@ def main():
         parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) py ' + __version__)
         parser.add_argument('-p', '--progress', type=ProgressType, choices=list(ProgressType),
                             default=ProgressType.zenity, help='the progress bar type. (default: zenity)')
+        parser.add_argument('-d', '--destpath', type=str, default=None,
+                            help='the default save destination path. (default: choose each time)')
         parser.add_argument('mode', help='iTerm2 trigger parameter. (generally should be \\1)')
         args = parser.parse_args()
 
