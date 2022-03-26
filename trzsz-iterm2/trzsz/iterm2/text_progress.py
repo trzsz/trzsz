@@ -91,7 +91,7 @@ def time_to_str(time_func):
     return result
 
 class TextProgressBar(TrzszCallback):
-    def __init__(self, loop, session):
+    def __init__(self, loop, session, tmux_pane_width=None):
         self.num = 0
         self.idx = 0
         self.name = ''
@@ -99,9 +99,11 @@ class TextProgressBar(TrzszCallback):
         self.step = 0
         self.start_time = 0
         self.update_time = 0
+        self.first_write = True
         self.loop = loop
         self.session = session
-        self.columns = session.grid_size.width
+        self.tmux_pane_width = tmux_pane_width or -1
+        self.columns = self.tmux_pane_width if self.tmux_pane_width > 0 else session.grid_size.width
 
     def on_num(self, num):
         self.num = num
@@ -119,20 +121,30 @@ class TextProgressBar(TrzszCallback):
         self._show_progress()
 
     def on_done(self, name):
-        self._inject_to_iterm2('')
+        pass
 
     def _show_progress(self):
         now = time.time()
         if now - self.update_time < 0.5:
             return
         self.update_time = now
+
         if self.size == 0:
             return
         percentage = str(round(self.step * 100 / self.size)) + '%'
         total = size_to_str(lambda: self.step)
         speed = size_to_str(lambda: (self.step / (now - self.start_time))) + '/s'
         eta = time_to_str(lambda: (self.size - self.step) * (now - self.start_time) / self.step) + ' ETA'
-        self._inject_to_iterm2(self._progress_text(percentage, total, speed, eta))
+        progress_text = self._progress_text(percentage, total, speed, eta)
+
+        if self.first_write:
+            self.first_write = False
+            self._inject_to_iterm2(progress_text)
+            return
+        if self.tmux_pane_width > 0:
+            self._inject_to_iterm2(f'\x1b[{self.columns}D{progress_text}')
+        else:
+            self._inject_to_iterm2(f'\r{progress_text}')
 
     def _progress_text(self, percentage, total, speed, eta):
         bar_min_len = 24
@@ -183,4 +195,4 @@ class TextProgressBar(TrzszCallback):
         return '[\u001b[36m' + '\u2588' * complete + '\u2591' * (total - complete) + '\u001b[0m]'
 
     def _inject_to_iterm2(self, data):
-        self.loop.create_task(self.session.async_inject(b'\r' + data.encode('utf8')))
+        self.loop.create_task(self.session.async_inject(data.encode('utf8')))

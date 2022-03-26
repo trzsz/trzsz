@@ -23,7 +23,7 @@
 import re
 import unittest
 import unittest.mock
-from trzsz.iterm2.text_progress import *
+from .trzsz.iterm2.text_progress import *
 
 class GridSize():
     def __init__(self, width):
@@ -34,7 +34,7 @@ class Session():
         self.grid_size = GridSize(width)
 
 def output_length(s):
-    return display_length(re.sub(r'(\u2588|\u2591)', '*', re.sub(r'\u001b\[\d+m', '', s)))
+    return display_length(re.sub(r'(\u2588|\u2591)', '*', re.sub(r'\u001b\[\d+[mD]', '', re.sub(r'\r', '', s))))
 
 class TestTextProgressBar(unittest.TestCase):
 
@@ -199,15 +199,47 @@ class TestTextProgressBar(unittest.TestCase):
         self.tgb.on_step(300)
         self.tgb.on_done('test.txt')
         self.assertEqual(mock_time.call_count, 4)
-        self.assertEqual(self.mock_inject.call_count, 4)
+        self.assertEqual(self.mock_inject.call_count, 2)
+        self.assertNotIn('\r', self.mock_inject.call_args_list[0].args[0])
         self.assertIn('(1/2) 中文😀test.txt [', self.mock_inject.call_args_list[0].args[0])
         self.assertIn('] 10% | 100B | 100B/s | 00:09 ETA', self.mock_inject.call_args_list[0].args[0])
         self.assertEqual(output_length(self.mock_inject.call_args_list[0].args[0]), 100)
-        self.assertEqual('', self.mock_inject.call_args_list[1].args[0])
-        self.assertIn('(2/2) 英文😀test.txt [', self.mock_inject.call_args_list[2].args[0])
-        self.assertIn('] 15% | 300B | 150B/s | 00:11 ETA', self.mock_inject.call_args_list[2].args[0])
-        self.assertEqual(output_length(self.mock_inject.call_args_list[2].args[0]), 100)
-        self.assertEqual('', self.mock_inject.call_args_list[3].args[0])
+        self.assertIn('\r', self.mock_inject.call_args_list[1].args[0])
+        self.assertIn('(2/2) 英文😀test.txt [', self.mock_inject.call_args_list[1].args[0])
+        self.assertIn('] 15% | 300B | 150B/s | 00:11 ETA', self.mock_inject.call_args_list[1].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[1].args[0]), 100)
+
+    @unittest.mock.patch('time.time', side_effect=[1646564135, 1646564136, 1646564137, 1646564138])
+    def test_tmux_pane(self, mock_time):
+        self.tgb = TextProgressBar(self.loop, self.session, 80)
+        # pylint: disable=protected-access
+        self.tgb._inject_to_iterm2 = self.mock_inject
+        self.tgb.on_num(1)
+        self.tgb.on_name('中文😀test.txt')
+        self.tgb.on_size(1000)
+        self.tgb.on_step(100)
+        self.tgb.on_step(200)
+        self.tgb.on_step(300)
+
+        self.assertEqual(mock_time.call_count, 4)
+        self.assertEqual(self.mock_inject.call_count, 3)
+        self.assertNotIn('\r', self.mock_inject.call_args_list[0].args[0])
+        self.assertNotIn('\x1b[80D', self.mock_inject.call_args_list[0].args[0])
+        self.assertIn('中文😀test.txt [', self.mock_inject.call_args_list[0].args[0])
+        self.assertIn('] 10% | 100B | 100B/s | 00:09 ETA', self.mock_inject.call_args_list[0].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[0].args[0]), 80)
+
+        self.assertNotIn('\r', self.mock_inject.call_args_list[1].args[0])
+        self.assertIn('\x1b[80D', self.mock_inject.call_args_list[1].args[0])
+        self.assertIn('中文😀test.txt [', self.mock_inject.call_args_list[1].args[0])
+        self.assertIn('] 20% | 200B | 100B/s | 00:08 ETA', self.mock_inject.call_args_list[1].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[1].args[0]), 80)
+
+        self.assertNotIn('\r', self.mock_inject.call_args_list[2].args[0])
+        self.assertIn('\x1b[80D', self.mock_inject.call_args_list[2].args[0])
+        self.assertIn('中文😀test.txt [', self.mock_inject.call_args_list[2].args[0])
+        self.assertIn('] 30% | 300B | 100B/s | 00:07 ETA', self.mock_inject.call_args_list[2].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[2].args[0]), 80)
 
 if __name__ == '__main__':
     unittest.main()

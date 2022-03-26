@@ -41,6 +41,7 @@ TMUX_CONTROL_MODE = 2
 
 tmux_output_junk = False
 tmux_real_stdout = sys.stdout
+tmux_pane_width = -1
 
 try:
     stdin_old_tty = termios.tcgetattr(sys.stdin.fileno())
@@ -56,12 +57,12 @@ def reset_stdin_tty():
 atexit.register(reset_stdin_tty)
 
 def convert_to_unicode(buf):
-    if sys.version_info < (3,) and not isinstance(buf, unicode):
+    if sys.version_info < (3, ) and not isinstance(buf, unicode):
         return unicode(buf, 'utf8')
     return buf
 
 def encode_if_unicode(buf):
-    if sys.version_info < (3,) and isinstance(buf, unicode):
+    if sys.version_info < (3, ) and isinstance(buf, unicode):
         return buf.encode('utf8')
     return buf
 
@@ -187,7 +188,7 @@ def read_line():
             raise TrzszError("Stopped", trace=False)
         if c == '\n':
             break
-        elif c == '\x03':
+        if c == '\x03':
             delay_exit(False, 'Interrupted')
         s += c
     return s
@@ -224,7 +225,7 @@ def check_integer(expect):
         raise TrzszError('[%d] <> [%d]' % (result, expect))
 
 def send_string(typ, buf):
-    if sys.version_info >= (3,) or isinstance(buf, unicode):
+    if sys.version_info >= (3, ) or isinstance(buf, unicode):
         buf = buf.encode('utf8')
     send_line(typ, encode_buffer(buf))
 
@@ -300,12 +301,12 @@ def recv_data(binary, escape_chars, timeout):
             signal.alarm(0)
 
 def send_json(typ, dic):
-    send_string(typ, json.dumps(dic, encoding='latin1') if sys.version_info < (3,) else json.dumps(dic))
+    send_string(typ, json.dumps(dic, encoding='latin1') if sys.version_info < (3, ) else json.dumps(dic))
 
 def recv_json(typ, may_has_junk=False):
     dic = recv_string(typ, may_has_junk)
     try:
-        return json.loads(dic, encoding='latin1') if sys.version_info < (3,) else json.loads(dic)
+        return json.loads(dic, encoding='latin1') if sys.version_info < (3, ) else json.loads(dic)
     except ValueError as e:
         raise TrzszError(dic, str(e))
 
@@ -331,6 +332,7 @@ def send_config(args, escape_chars):
         config['overwrite'] = True
     if tmux_real_stdout != sys.stdout:
         config['tmux_output_junk'] = True
+        config['tmux_pane_width'] = tmux_pane_width
     send_json('CFG', config)
 
 def recv_config():
@@ -420,12 +422,15 @@ def check_files_readable(file_list):
 def check_tmux():
     if 'TMUX' not in os.environ:
         return NO_TMUX
-    output = subprocess.check_output(['tmux', 'display-message', '-p', '#{client_tty}:#{client_control_mode}'])
-    tmux_tty, control_mode = output.decode('utf8').strip().split(':')
+    output = subprocess.check_output(
+        ['tmux', 'display-message', '-p', '#{client_tty}:#{client_control_mode}:#{pane_width}'])
+    tmux_tty, control_mode, pane_width = output.decode('utf8').strip().split(':')
     if control_mode == '1' or (not tmux_tty.startswith('/')) or (not os.path.exists(tmux_tty)):
         return TMUX_CONTROL_MODE
-    global tmux_real_stdout
+    global tmux_real_stdout, tmux_pane_width
     tmux_real_stdout = open(tmux_tty, 'w')
+    if pane_width:
+        tmux_pane_width = int(pane_width)
     return TMUX_NORMAL_MODE
 
 def get_columns():

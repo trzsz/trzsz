@@ -62,7 +62,7 @@ def main():
         3. In tmux control mode, iTerm2 will ignore invisible characters, or something else.
            While sending the binary data, iTerm2 doesn't send 'send-keys' commands to tmux.
         '''
-        sys.stdout.write('Binary upload in tmux is not support, auto switch to base64 mode.\n')
+        sys.stdout.write('Binary upload in tmux is not supported, auto switch to base64 mode.\n')
         args.binary = False
     if tmux_mode == TMUX_NORMAL_MODE:
         sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < get_columns() < 40 else '\n\x1b[1A\x1b[0J')

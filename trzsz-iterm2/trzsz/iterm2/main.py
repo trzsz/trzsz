@@ -88,7 +88,7 @@ def download_files(args, loop, session):
     callback = None
     if not config.get('quiet', False):
         if args.progress == ProgressType.text and loop and session:
-            callback = TextProgressBar(loop, session)
+            callback = TextProgressBar(loop, session, config.get('tmux_pane_width'))
         else:
             callback = ZenityProgressBar('Download')
 
@@ -138,7 +138,7 @@ def upload_files(args, loop, session):
     callback = None
     if not config.get('quiet', False):
         if args.progress == ProgressType.text and loop and session:
-            callback = TextProgressBar(loop, session)
+            callback = TextProgressBar(loop, session, config.get('tmux_pane_width'))
         else:
             callback = ZenityProgressBar('Upload')
 
