@@ -51,6 +51,10 @@ install_requires = [
     'trzsz-svr == ' + version,
 ]
 
+extras_require = {
+    'iterm2': [ 'trzsz-iterm2 == ' + version ]
+}
+
 setup(
     name                            = 'trzsz',
     version                         = version,
@@ -61,6 +65,7 @@ setup(
     long_description_content_type   = 'text/markdown',
     url                             = 'https://trzsz.github.io',
     install_requires                = install_requires,
+    extras_require                  = extras_require,
     license                         = 'MIT License',
     classifiers                     = classifiers,
     keywords                        = 'trzsz trz tsz lrzsz rz sz tmux iTerm2 progressbar',

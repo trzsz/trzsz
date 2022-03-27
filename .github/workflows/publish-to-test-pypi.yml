@@ -69,10 +69,6 @@ jobs:
           python-version: '2.7'
       - name: Wait 10 minute
         run: sleep 600
-      - name: Install trzsz-libs
-        run: pip install -i https://test.pypi.org/simple/ trzsz-libs==${{ needs.build-and-publish.outputs.test_version }}
-      - name: Install trzsz-svr
-        run: pip install -i https://test.pypi.org/simple/ trzsz-svr==${{ needs.build-and-publish.outputs.test_version }}
       - name: Install trzsz
         run: pip install -i https://test.pypi.org/simple/ trzsz==${{ needs.build-and-publish.outputs.test_version }}
       - name: Test trz
@@ -90,10 +86,6 @@ jobs:
           python-version: '3.7'
       - name: Wait 10 minute
         run: sleep 600
-      - name: Install trzsz-libs
-        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz-libs==${{ needs.build-and-publish.outputs.test_version }}
-      - name: Install trzsz-svr
-        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz-svr==${{ needs.build-and-publish.outputs.test_version }}
       - name: Install trzsz
         run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz==${{ needs.build-and-publish.outputs.test_version }}
       - name: Test trz
@@ -111,14 +103,8 @@ jobs:
           python-version: '3.7'
       - name: Wait 10 minute
         run: sleep 600
-      - name: Install trzsz-libs
-        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz-libs==${{ needs.build-and-publish.outputs.test_version }}
-      - name: Install trzsz-svr
-        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz-svr==${{ needs.build-and-publish.outputs.test_version }}
-      - name: Install trzsz-iterm2
-        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ trzsz-iterm2==${{ needs.build-and-publish.outputs.test_version }}
-      - name: Install trzsz
-        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ trzsz==${{ needs.build-and-publish.outputs.test_version }}
+      - name: Install trzsz with iterm2
+        run: python3 -m pip install --upgrade -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ trzsz[iterm2]==${{ needs.build-and-publish.outputs.test_version }}
       - name: Test trz
         run: trz -v
       - name: Test tsz
