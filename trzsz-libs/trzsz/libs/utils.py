@@ -24,6 +24,7 @@ import os
 import re
 import sys
 import json
+import time
 import zlib
 import atexit
 import base64
@@ -341,10 +342,12 @@ def recv_config():
     tmux_output_junk = config.get('tmux_output_junk', False)
     return config
 
+max_chunk_time = 0
+
 def stop_transferring():
     global clean_timeout, trzsz_stopped
     trzsz_stopped = True
-    clean_timeout = 0.5
+    clean_timeout = max(max_chunk_time * 2, 0.5)
     if interruptible:
         os.kill(os.getpid(), signal.SIGINT)
 
@@ -450,13 +453,14 @@ def reconfigure_stdin():
     except AttributeError:
         pass
 
-def send_files(file_list, callback=None, binary=False, escape_chars=None, bufsize=10240):
+def send_files(file_list, callback=None, binary=False, escape_chars=None, max_buf_size=10*1024*1024):
     num = len(file_list)
     send_integer('NUM', num)
     check_integer(num)
     if callback:
         callback.on_num(num)
 
+    buf_size = 1024
     remote_list = []
 
     for file_path in file_list:
@@ -476,13 +480,20 @@ def send_files(file_list, callback=None, binary=False, escape_chars=None, bufsiz
         m = hashlib.md5()
         with open(file_path, 'rb') as f:
             while step < file_size:
-                data = f.read(bufsize)
+                begin_time = time.time()
+                data = f.read(buf_size)
                 send_data(data, binary, escape_chars)
                 m.update(data)
                 check_integer(len(data))
                 step += len(data)
                 if callback:
                     callback.on_step(step)
+                chunk_time = time.time() - begin_time
+                if chunk_time < 1.0 and buf_size < max_buf_size:
+                    buf_size = min(buf_size * 2, max_buf_size)
+                global max_chunk_time
+                if chunk_time > max_chunk_time:
+                    max_chunk_time = chunk_time
 
         digest = m.digest()
         send_binary('MD5', digest)
@@ -525,32 +536,31 @@ def recv_files(dest_path, callback=None, overwrite=False, binary=False, escape_c
     for i in range(num):
         name = recv_string('NAME')
         file_name = name if overwrite else get_new_name(dest_path, name)
-        send_string('SUCC', file_name)
-        if callback:
-            callback.on_name(name)
+        with open_dest_file(os.path.join(dest_path, file_name)) as f:
+            send_string('SUCC', file_name)
+            if callback:
+                callback.on_name(name)
 
-        file_size = recv_integer('SIZE')
-        send_integer('SUCC', file_size)
-        if callback:
-            callback.on_size(file_size)
+            file_size = recv_integer('SIZE')
+            send_integer('SUCC', file_size)
+            if callback:
+                callback.on_size(file_size)
 
-        step = 0
-        f = None
-        m = hashlib.md5()
-        try:
+            step = 0
+            m = hashlib.md5()
             while step < file_size:
+                begin_time = time.time()
                 data = recv_data(binary, escape_chars, timeout)
-                if not f:
-                    f = open_dest_file(os.path.join(dest_path, file_name))
                 f.write(data)
                 step += len(data)
                 if callback:
                     callback.on_step(step)
                 send_integer('SUCC', len(data))
                 m.update(data)
-        finally:
-            if f:
-                f.close()
+                chunk_time = time.time() - begin_time
+                global max_chunk_time
+                if chunk_time > max_chunk_time:
+                    max_chunk_time = chunk_time
 
         digest = recv_binary('MD5')
         if digest == m.digest():

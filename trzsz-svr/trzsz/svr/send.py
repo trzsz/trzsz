@@ -36,8 +36,8 @@ def main():
     parser.add_argument('-y', '--overwrite', action='store_true', help='yes, overwrite existing file(s)')
     parser.add_argument('-b', '--binary', action='store_true', help='binary transfer mode, faster for binary files')
     parser.add_argument('-e', '--escape', action='store_true', help='escape all known control characters')
-    parser.add_argument('-B', '--bufsize', min_size='1K', max_size='100M', default='1M', action=BufferSizeParser,
-                        metavar='N', help='buffer chunk size ( 1K <= N <= 100M ). (default: 1M)')
+    parser.add_argument('-B', '--bufsize', min_size='1K', max_size='1G', default='10M', action=BufferSizeParser,
+                        metavar='N', help='max buffer chunk size (1K<=N<=1G). (default: 10M)')
     parser.add_argument('-t', '--timeout', type=int, default=100, metavar='N',
                         help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 100)')
     parser.add_argument('file', nargs='+', type=convert_to_unicode, help='file(s) to be sent')

@@ -13,11 +13,12 @@
 
 * With Python3
   ```
-  sudo python3 -m pip install trzsz-iterm2
+  sudo python3 -m pip install --upgrade trzsz-iterm2
   ```
 
 * With Homebrew
   ```
+  brew update
   brew install trzsz
   ```
 
@@ -48,12 +49,38 @@
 
   ![iTerm2 Trigger configuration](https://trzsz.github.io/images/config.jpg)
 
+* Open `iTerm2 -> Preferences... -> General -> Magic`, check `Enable Python API`.
+
+  ![iTerm2 Enable Python API](https://trzsz.github.io/images/PythonAPI.png)
+
+* Set `ITERM2_COOKIE` environment variable for faster startup.
+
+  Open `iTerm2 -> Preferences... -> Advanced`, filter by `COOKIE`, select `Yes`.
+
+  ![iTerm2 Enable ITERM2_COOKIE](https://trzsz.github.io/images/iterm2_cookie.png)
+
 
 ## Progress Bar
 
-### Option 1: The [zenity](https://github.com/ncruces/zenity) progress bar
+### Option 1: The cooler text progress bar
 
-* Install zenity
+* Screenshot of text progress bar
+  ![using trzsz in iTerm2 with text progress bar](https://trzsz.github.io/images/iterm2_text.gif)
+
+* Upgrade iTerm2 to `Build 3.5.20220503-nightly` or higher.
+
+* Add `-p text` to the parameters of iTerm2 `Trigger`.
+  ```
+  /usr/local/bin/trzsz-iterm2 -p text \1
+  ```
+  Don't forget to change `/usr/local/bin/trzsz-iterm2` to the real absolute path of `trzsz-iterm2`.
+
+### Option 2: The [zenity](https://github.com/ncruces/zenity) progress bar
+
+* Screenshot of zenity progress bar
+  ![using trzsz in iTerm2 with zenity progress bar](https://trzsz.github.io/images/iterm2_zenity.gif)
+
+* Install `zenity`
   ```sh
   brew install ncruces/tap/zenity
   ```
@@ -70,18 +97,20 @@
   sudo ln -sv $(which zenity) /usr/local/bin/zenity
   ```
 
-### Option 2: The cooler text progress bar
-*Under development...*
+## Default save path
 
-* Upgrade iTerm2 to `Build 3.4.16` ( *not release yet* ) or higher
+If you want to automatically download files to the specified directory instead of asking each time.
 
-* Add `-p text` to the parameters of iTerm2 Trigger.
+e.g.: Automatically download files to `/Users/xxxxx/Downloads`
+
+* Using text progress bar, change `/usr/local/bin/trzsz-iterm2 -p text \1` to:
   ```
-  /usr/local/bin/trzsz-iterm2 -p text \1
+  /usr/local/bin/trzsz-iterm2 -p text -d '/Users/xxxxx/Downloads' \1
   ```
-  Don't forget to change `/usr/local/bin/trzsz-iterm2` to the real absolute path of `trzsz-iterm2`.
 
-* Open `iTerm2 -> Preferences... -> General -> Magic`, check `Enabel Python API`.
+* Using zenity progress bar, change `/usr/local/bin/trzsz-iterm2 \1` to:
+  ```
+  /usr/local/bin/trzsz-iterm2 -p zenity -d '/Users/xxxxx/Downloads' \1
+  ```
 
-  ![iTerm2 Enabel Python API](https://trzsz.github.io/images/PythonAPI.png)
-
+Don't forget to change `/usr/local/bin/trzsz-iterm2` to the real absolute path of `trzsz-iterm2`.

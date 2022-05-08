@@ -80,7 +80,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
     -y, --overwrite    yes, overwrite existing file(s)
     -b, --binary       binary transfer mode, faster for binary files
     -e, --escape       escape all known control characters
-    -B N, --bufsize N  buffer chunk size ( 1K <= N <= 100M ). (default: 1M)
+    -B N, --bufsize N  max buffer chunk size (1K<=N<=1G). (default: 10M)
     -t N, --timeout N  timeout ( N seconds ) for each buffer chunk.
                        N <= 0 means never timeout. (default: 100)
   ```
@@ -101,7 +101,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
     -y, --overwrite    yes, overwrite existing file(s)
     -b, --binary       binary transfer mode, faster for binary files
     -e, --escape       escape all known control characters
-    -B N, --bufsize N  buffer chunk size ( 1K <= N <= 100M ). (default: 1M)
+    -B N, --bufsize N  max buffer chunk size (1K<=N<=1G). (default: 10M)
     -t N, --timeout N  timeout ( N seconds ) for each buffer chunk.
                        N <= 0 means never timeout. (default: 100)
   ```

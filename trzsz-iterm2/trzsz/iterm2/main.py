@@ -52,8 +52,25 @@ def run_osascript(script):
             raise TrzszError('Only supports iTerm2', trace=False)
         raise
 
-def download_files(args, loop, session):
-    dest_path = args.destpath or run_osascript('''(function () {
+def choose_save_path(loop, connection):
+    if connection and iterm2.capabilities.supports_file_panels(connection):
+        panel = iterm2.OpenPanel()
+        panel.prompt = 'Choose'
+        panel.message = 'Choose a folder to save file(s)'
+        panel.options.clear()
+        panel.options.append(iterm2.OpenPanel.Options.CAN_CHOOSE_DIRECTORIES)
+        panel.options.append(iterm2.OpenPanel.Options.CAN_CREATE_DIRECTORIES)
+        panel.options.append(iterm2.OpenPanel.Options.SHOWS_HIDDEN_FILES)
+        panel.options.append(iterm2.OpenPanel.Options.TREATS_FILE_PACKAGES_AS_DIRECTORIES)
+        future = asyncio.ensure_future(panel.async_run(connection), loop=loop)
+        event = threading.Event()
+        future.add_done_callback(lambda x: event.set())
+        event.wait()
+        result = future.result()
+        if result and result.files:
+            return result.files[0]
+        return None
+    return run_osascript('''(function () {
         const app = Application("iTerm2");
         app.includeStandardAdditions = true;
         app.activate();
@@ -68,6 +85,49 @@ def download_files(args, loop, session):
             return "";
         }
     })();''')
+
+def choose_send_files(loop, connection):
+    if connection and iterm2.capabilities.supports_file_panels(connection):
+        panel = iterm2.OpenPanel()
+        panel.prompt = 'Choose'
+        panel.message = 'Choose some files to send'
+        panel.options.clear()
+        panel.options.append(iterm2.OpenPanel.Options.CAN_CHOOSE_FILES)
+        panel.options.append(iterm2.OpenPanel.Options.ALLOWS_MULTIPLE_SELECTION)
+        panel.options.append(iterm2.OpenPanel.Options.SHOWS_HIDDEN_FILES)
+        panel.options.append(iterm2.OpenPanel.Options.TREATS_FILE_PACKAGES_AS_DIRECTORIES)
+        future = asyncio.ensure_future(panel.async_run(connection), loop=loop)
+        event = threading.Event()
+        future.add_done_callback(lambda x: event.set())
+        event.wait()
+        result = future.result()
+        if result:
+            return result.files
+        return None
+    file_list = run_osascript('''(function () {
+        const app = Application("iTerm2");
+        app.includeStandardAdditions = true;
+        app.activate();
+        try {
+            var files = app.chooseFile({
+                withPrompt: "Choose some files to send",
+                invisibles: true,
+                showingPackageContents: true,
+                multipleSelectionsAllowed: true,
+            });
+            var file_list = "";
+            for (var i = 0; i < files.length; i++) {
+                file_list += files[i].toString() + "\\n";
+            }
+            return file_list;
+        } catch (e) {
+            return "";
+        }
+    })();''')
+    return [f for f in file_list.split('\n') if f]
+
+def download_files(args, loop, connection, session):
+    dest_path = args.destpath or choose_save_path(loop, connection)
 
     if not dest_path:
         send_action(False, __version__)
@@ -96,30 +156,8 @@ def download_files(args, loop, session):
 
     send_exit(True, 'Saved %s to %s' % (', '.join(local_list), dest_path))
 
-def upload_files(args, loop, session):
-    file_list = run_osascript('''(function () {
-        const app = Application("iTerm2");
-        app.includeStandardAdditions = true;
-        app.activate();
-        try {
-            var files = app.chooseFile({
-                withPrompt: "Choose some files to send",
-                invisibles: true,
-                showingPackageContents: true,
-                multipleSelectionsAllowed: true,
-            });
-            var file_list = "";
-            for (var i = 0; i < files.length; i++) {
-                file_list += files[i].toString() + "\\n";
-            }
-            return file_list;
-        } catch (e) {
-            return "";
-        }
-    })();''')
-
-    file_list = [f for f in file_list.split('\n') if f]
-
+def upload_files(args, loop, connection, session):
+    file_list = choose_send_files(loop, connection)
     if not file_list:
         send_action(False, __version__)
         return
@@ -132,7 +170,7 @@ def upload_files(args, loop, session):
     config = recv_config()
 
     binary = config.get('binary', False)
-    bufsize = config.get('bufsize', 10240)
+    bufsize = config.get('bufsize', 10 * 1024 * 1024)
     escape_chars = config.get('escape_chars', [])
 
     callback = None
@@ -233,7 +271,7 @@ def main():
         if unique_id_exists(unique_id):
             return
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
         connection, session = loop.run_until_complete(get_running_session(args.progress == ProgressType.text))
         if connection and session:
             thread = threading.Thread(target=side_thread, args=(loop,), daemon=True)
@@ -242,9 +280,9 @@ def main():
             asyncio.run_coroutine_threadsafe(keystroke_monitor(connection, session), loop)
 
         if mode == 'S':
-            download_files(args, loop, session)
+            download_files(args, loop, connection, session)
         elif mode == 'R':
-            upload_files(args, loop, session)
+            upload_files(args, loop, connection, session)
         else:
             raise TrzszError('Unknown transfer mode: %s' % mode, trace=False)
 
