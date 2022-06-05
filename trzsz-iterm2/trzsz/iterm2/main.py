@@ -55,7 +55,6 @@ def run_osascript(script):
 def choose_save_path(loop, connection):
     if connection and iterm2.capabilities.supports_file_panels(connection):
         panel = iterm2.OpenPanel()
-        panel.prompt = 'Choose'
         panel.message = 'Choose a folder to save file(s)'
         panel.options.clear()
         panel.options.append(iterm2.OpenPanel.Options.CAN_CHOOSE_DIRECTORIES)
@@ -89,7 +88,6 @@ def choose_save_path(loop, connection):
 def choose_send_files(loop, connection):
     if connection and iterm2.capabilities.supports_file_panels(connection):
         panel = iterm2.OpenPanel()
-        panel.prompt = 'Choose'
         panel.message = 'Choose some files to send'
         panel.options.clear()
         panel.options.append(iterm2.OpenPanel.Options.CAN_CHOOSE_FILES)
@@ -126,18 +124,18 @@ def choose_send_files(loop, connection):
     })();''')
     return [f for f in file_list.split('\n') if f]
 
-def download_files(args, loop, connection, session):
+def download_files(args, loop, connection, session, remote_is_windows):
     dest_path = args.destpath or choose_save_path(loop, connection)
 
     if not dest_path:
-        send_action(False, __version__)
+        send_action(False, __version__, remote_is_windows)
         return
 
     check_path_writable(dest_path)
 
     reconfigure_stdin()
 
-    send_action(True, __version__)
+    send_action(True, __version__, remote_is_windows)
     config = recv_config()
 
     binary = config.get('binary', False)
@@ -152,21 +150,21 @@ def download_files(args, loop, connection, session):
         else:
             callback = ZenityProgressBar('Download')
 
-    local_list = recv_files(dest_path, callback, overwrite, binary, escape_chars, timeout)
+    local_list = recv_files(dest_path, callback)
 
-    send_exit(True, 'Saved %s to %s' % (', '.join(local_list), dest_path))
+    client_exit('Saved %s to %s' % (', '.join(local_list), dest_path))
 
-def upload_files(args, loop, connection, session):
+def upload_files(args, loop, connection, session, remote_is_windows):
     file_list = choose_send_files(loop, connection)
     if not file_list:
-        send_action(False, __version__)
+        send_action(False, __version__, remote_is_windows)
         return
 
     check_files_readable(file_list)
 
     reconfigure_stdin()
 
-    send_action(True, __version__)
+    send_action(True, __version__, remote_is_windows)
     config = recv_config()
 
     binary = config.get('binary', False)
@@ -180,9 +178,9 @@ def upload_files(args, loop, connection, session):
         else:
             callback = ZenityProgressBar('Upload')
 
-    remote_list = send_files(file_list, callback, binary, escape_chars, bufsize)
+    remote_list = send_files(file_list, callback)
 
-    send_exit(True, 'Received %s' % ', '.join(remote_list))
+    client_exit('Received %s' % ', '.join(remote_list))
 
 async def keystroke_filter(connection, session):
     all_keys = iterm2.KeystrokePattern()
@@ -219,11 +217,12 @@ async def get_running_session(force):
                 for session in tab.sessions:
                     if session.session_id in session_id:
                         return connection, session
-        if force:
-            raise TrzszError("Can't find the session in iTerm2", trace=False)
-    except ConnectionRefusedError:
+    except Exception:
         if force:
             raise TrzszError('Please enable iTerm2 Python API', trace=False)
+        return None, None
+    if force:
+        raise TrzszError("Can't find the session in iTerm2", trace=False)
     return None, None
 
 def unique_id_exists(unique_id):
@@ -253,9 +252,16 @@ def main():
         parser = argparse.ArgumentParser(description='iTerm2 coprocess of trzsz which similar to lrzsz ' \
                                                      '( rz / sz ) and compatible with tmux.')
         parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) py ' + __version__)
-        parser.add_argument('-p', '--progress', type=ProgressType, choices=list(ProgressType),
-                            default=ProgressType.zenity, help='the progress bar type. (default: zenity)')
-        parser.add_argument('-d', '--destpath', type=str, default=None,
+        parser.add_argument('-p',
+                            '--progress',
+                            type=ProgressType,
+                            choices=list(ProgressType),
+                            default=ProgressType.zenity,
+                            help='the progress bar type. (default: zenity)')
+        parser.add_argument('-d',
+                            '--destpath',
+                            type=str,
+                            default=None,
                             help='the default save destination path. (default: choose each time)')
         parser.add_argument('mode', help='iTerm2 trigger parameter. (generally should be \\1)')
         args = parser.parse_args()
@@ -267,6 +273,7 @@ def main():
         mode = trigger_match.group(1)
         version = trigger_match.group(2)
         unique_id = trigger_match.group(3)
+        remote_is_windows = unique_id == ':1'
 
         if unique_id_exists(unique_id):
             return
@@ -274,20 +281,20 @@ def main():
         loop = asyncio.new_event_loop()
         connection, session = loop.run_until_complete(get_running_session(args.progress == ProgressType.text))
         if connection and session:
-            thread = threading.Thread(target=side_thread, args=(loop,), daemon=True)
+            thread = threading.Thread(target=side_thread, args=(loop, ), daemon=True)
             thread.start()
             asyncio.run_coroutine_threadsafe(keystroke_filter(connection, session), loop)
             asyncio.run_coroutine_threadsafe(keystroke_monitor(connection, session), loop)
 
         if mode == 'S':
-            download_files(args, loop, connection, session)
+            download_files(args, loop, connection, session, remote_is_windows)
         elif mode == 'R':
-            upload_files(args, loop, connection, session)
+            upload_files(args, loop, connection, session, remote_is_windows)
         else:
             raise TrzszError('Unknown transfer mode: %s' % mode, trace=False)
 
     except Exception as e:
-        fail_exit(e, False)
+        client_error(e)
 
 if __name__ == '__main__':
     main()

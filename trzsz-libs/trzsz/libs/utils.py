@@ -31,8 +31,8 @@ import base64
 import select
 import signal
 import hashlib
-import termios
 import argparse
+import platform
 import traceback
 import subprocess
 
@@ -43,19 +43,33 @@ TMUX_CONTROL_MODE = 2
 tmux_output_junk = False
 tmux_real_stdout = sys.stdout
 tmux_pane_width = -1
+protocol_newline = '\n'
+transfer_config = {}
+is_windows = platform.system() == 'Windows'
 
-try:
-    stdin_old_tty = termios.tcgetattr(sys.stdin.fileno())
-except termios.error:
+if is_windows:
+    # pylint: disable=unused-import
+    from trzsz.libs.wins import set_stdin_raw, reset_stdin_tty
+else:
+    import tty
+    import termios
     stdin_old_tty = None
 
-def reset_stdin_tty():
-    global stdin_old_tty
-    if stdin_old_tty:
-        termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, stdin_old_tty)
-        stdin_old_tty = None
+    def set_stdin_raw():
+        global stdin_old_tty
+        stdin_old_tty = termios.tcgetattr(sys.stdin.fileno())
+        tty.setraw(sys.stdin.fileno(), termios.TCSANOW)
+
+    def reset_stdin_tty():
+        global stdin_old_tty
+        if stdin_old_tty:
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, stdin_old_tty)
+            stdin_old_tty = None
 
 atexit.register(reset_stdin_tty)
+
+if sys.version_info >= (3, ):
+    unicode = str
 
 def convert_to_unicode(buf):
     if sys.version_info < (3, ) and not isinstance(buf, unicode):
@@ -70,13 +84,20 @@ def encode_if_unicode(buf):
 class TrzszError(Exception):
     def __init__(self, msg, typ=None, trace=True):
         msg = encode_if_unicode(msg)
+        if typ in ('fail', 'FAIL', 'EXIT'):
+            try:
+                msg = encode_if_unicode(decode_buffer(msg).decode('utf8'))
+            except Exception as e:
+                msg = 'decode [%s] error: %s' % (msg, str(e))
+        elif typ:
+            msg = '[TrzszError] %s: %s' % (typ, msg)
         Exception.__init__(self, msg)
         self.typ = typ
         self.msg = msg
         self.trace = trace
 
     def trace_back(self):
-        if self.typ == 'fail':
+        if self.typ in ('fail', 'EXIT'):
             return False
         return self.trace
 
@@ -84,20 +105,18 @@ class TrzszError(Exception):
         return self.typ == 'EXIT'
 
     def is_remote_fail(self):
-        return self.typ in ('FAIL', 'fail')
-
-    def decode_remote_msg(self):
-        try:
-            return encode_if_unicode(decode_buffer(self.msg).decode('utf8'))
-        except TrzszError as e:
-            return str(e)
+        return self.typ in ('fail', 'FAIL')
 
     def __str__(self):
-        if self.is_remote_exit() or self.is_remote_fail():
-            return self.decode_remote_msg()
-        if self.typ:
-            return '[TrzszError] %s: %s' % (self.typ, self.msg)
         return self.msg
+
+    @staticmethod
+    def get_err_msg(ex):
+        if isinstance(ex, TrzszError) and (not ex.trace_back()):
+            return str(ex)
+        if isinstance(ex, Exception):
+            return traceback.format_exc().strip()
+        return str(ex)
 
 class TrzszCallback(object):
     def on_num(self, num):
@@ -126,14 +145,16 @@ class BufferSizeParser(argparse.Action):
         argparse.Action.__init__(self, *args, **kwargs)
 
     def parse_size(self, value):
-        size_match = re.search(r'^(\d+)(k|m|g|kb|mb|gb)?$', value, re.IGNORECASE)
+        size_match = re.search(r'^(\d+)(b|k|m|g|kb|mb|gb)?$', value, re.IGNORECASE)
         if not size_match:
-            raise argparse.ArgumentError(self, 'invalid size')
+            raise argparse.ArgumentError(self, 'invalid size ' + value)
         size_value = int(size_match.group(1))
         unit_suffix = size_match.group(2)
         if not unit_suffix:
             return size_value
         unit_suffix = unit_suffix.lower()
+        if unit_suffix in ('b'):
+            return size_value
         if unit_suffix in ('k', 'kb'):
             return size_value * 1024
         if unit_suffix in ('m', 'mb'):
@@ -153,6 +174,8 @@ class BufferSizeParser(argparse.Action):
 clean_timeout = 0.1
 
 def clean_input(timeout):
+    if is_windows:
+        return
     while True:
         r, w, x = select.select([sys.stdin], [], [], timeout)
         if not r:
@@ -169,7 +192,7 @@ def decode_buffer(buf):
         raise TrzszError(buf, str(e))
 
 def send_line(typ, buf):
-    tmux_real_stdout.write('#%s:%s\n' % (typ, buf))
+    tmux_real_stdout.write('#%s:%s%s' % (typ, buf, protocol_newline))
     tmux_real_stdout.flush()
 
 trzsz_stopped = False
@@ -180,36 +203,89 @@ def read_line():
     s = ''
     while True:
         if trzsz_stopped:
-            raise TrzszError("Stopped", trace=False)
+            raise TrzszError('Stopped', trace=False)
         try:
             interruptible = True
             c = sys.stdin.read(1)
             interruptible = False
         except KeyboardInterrupt:
-            raise TrzszError("Stopped", trace=False)
+            raise TrzszError('Stopped', trace=False)
         if c == '\n':
             break
         if c == '\x03':
-            delay_exit(False, 'Interrupted')
+            raise TrzszError('Interrupted', trace=False)
         s += c
     return s
 
+def is_vt100_end(b):
+    if 'a' <= b <= 'z':
+        return True
+    if 'A' <= b <= 'Z':
+        return True
+    return False
+
+def is_trzsz_letter(b):
+    if 'a' <= b <= 'z':
+        return True
+    if 'A' <= b <= 'Z':
+        return True
+    if '0' <= b <= '9':
+        return True
+    if b in '#:+/=':
+        return True
+    return False
+
+def read_line_on_windows():
+    global interruptible
+    s = ''
+    skip_vt100 = False
+    while True:
+        if trzsz_stopped:
+            raise TrzszError('Stopped', trace=False)
+        try:
+            interruptible = True
+            c = sys.stdin.read(1)
+            interruptible = False
+        except KeyboardInterrupt:
+            raise TrzszError('Stopped', trace=False)
+        if c == '!':
+            break
+        if c == '\x03':
+            raise TrzszError('Interrupted', trace=False)
+        if skip_vt100:
+            if is_vt100_end(c):
+                skip_vt100 = False
+        elif c == '\x1b':
+            skip_vt100 = True
+        elif is_trzsz_letter(c):
+            s += c
+    return s
+
 def recv_line(expect_typ, may_has_junk=False):
-    s = read_line()
+    if is_windows:
+        line = read_line_on_windows()
+        if tmux_output_junk or may_has_junk:
+            idx = line.rfind('#' + expect_typ + ':')
+            if idx >= 0:
+                line = line[idx:]
+        return line
+    line = read_line()
     if tmux_output_junk or may_has_junk:
-        while s[-1] == '\r':
-            s += read_line()
-        flag = '#' + expect_typ + ':'
-        if flag in s:
-            s = flag + s.split(flag)[-1]
-    try:
-        typ, buf = s.split(':', 1)
-        return typ[1:], buf
-    except ValueError as e:
-        raise TrzszError(s, str(e))
+        if line:
+            while line[-1] == '\r':
+                line = line[:-1] + read_line()
+        idx = line.rfind('#' + expect_typ + ':')
+        if idx >= 0:
+            line = line[idx:]
+    return line
 
 def recv_check(expect_typ, may_has_junk=False):
-    typ, buf = recv_line(expect_typ, may_has_junk)
+    line = recv_line(expect_typ, may_has_junk)
+    idx = line.find(':')
+    if idx < 1:
+        raise TrzszError(encode_buffer(line.encode('utf8')), 'colon')
+    typ = line[1:idx]
+    buf = line[idx + 1:]
     if typ != expect_typ:
         raise TrzszError(buf, typ)
     return buf
@@ -286,10 +362,11 @@ def recv_timeout(_signum, _frame):
     clean_timeout = 3
     raise TrzszError('Receive data timeout', trace=False)
 
-signal.signal(signal.SIGALRM, recv_timeout)
+if not is_windows:
+    signal.signal(signal.SIGALRM, recv_timeout)
 
 def recv_data(binary, escape_chars, timeout):
-    if timeout > 0:
+    if timeout > 0 and not is_windows:
         signal.alarm(timeout)
     try:
         if not binary:
@@ -298,7 +375,7 @@ def recv_data(binary, escape_chars, timeout):
         data = sys.stdin.read(size).encode(encoding='latin1', errors='surrogateescape')
         return unescape_data(data, escape_chars)
     finally:
-        if timeout > 0:
+        if timeout > 0 and not is_windows:
             signal.alarm(0)
 
 def send_json(typ, dic):
@@ -311,12 +388,19 @@ def recv_json(typ, may_has_junk=False):
     except ValueError as e:
         raise TrzszError(dic, str(e))
 
-def send_action(confirm, version):
+def send_action(confirm, version, remote_is_windows):
     action = {'lang': 'py', 'confirm': confirm, 'version': version}
+    if remote_is_windows:
+        global protocol_newline
+        protocol_newline = '!\n'
     send_json('ACT', action)
 
 def recv_action():
-    return recv_json('ACT')
+    action = recv_json('ACT')
+    if 'newline' in action:
+        global protocol_newline
+        protocol_newline = action['newline']
+    return action
 
 def send_config(args, escape_chars):
     config = {'lang': 'py'}
@@ -334,11 +418,14 @@ def send_config(args, escape_chars):
     if tmux_real_stdout != sys.stdout:
         config['tmux_output_junk'] = True
         config['tmux_pane_width'] = tmux_pane_width
+    global transfer_config
+    transfer_config = config
     send_json('CFG', config)
 
 def recv_config():
     config = recv_json('CFG', True)
-    global tmux_output_junk
+    global transfer_config, tmux_output_junk
+    transfer_config = config
     tmux_output_junk = config.get('tmux_output_junk', False)
     return config
 
@@ -352,56 +439,58 @@ def stop_transferring():
         os.kill(os.getpid(), signal.SIGINT)
 
 def terminate(_signum, _frame):
-    delay_exit(False, 'Terminated')
+    raise TrzszError('Terminated', trace=False)
 
 signal.signal(signal.SIGTERM, terminate)
 
-def delay_exit(succ, msg):
+def interrupte(_signum, _frame):
+    raise TrzszError('Interrupted', trace=False)
+
+signal.signal(signal.SIGINT, interrupte)
+
+def client_exit(msg):
+    clean_input(0.2)
+    send_string('EXIT', msg)
+
+def recv_exit():
+    return recv_string('EXIT')
+
+def server_exit(msg):
     clean_input(0.2)
     reset_stdin_tty()
     sys.stdout.write('\x1b8\x1b[0J')
-    sys.stdout.flush()
-    if succ:
-        sys.stdout.write(msg + '\n')
-    else:
-        sys.stderr.write(msg + '\n')
-    sys.exit(0 if succ else 1)
+    if is_windows:
+        sys.stdout.write('\r\n')
+    sys.stdout.write(msg)
+    sys.stdout.write('\n')
 
-def do_exit(server_side, msg, trace):
-    if server_side:
-        delay_exit(False, msg)
-    elif trace:
-        sys.stderr.write(msg + '\n')
-    sys.exit(1)
-
-def get_err_msg(ex):
-    if isinstance(ex, TrzszError) and not ex.trace_back():
-        return str(ex)
-    if isinstance(ex, Exception):
-        return traceback.format_exc().strip()
-    return str(ex)
-
-def fail_exit(ex, server_side):
+def client_error(ex):
     clean_input(clean_timeout)
+    err_msg = TrzszError.get_err_msg(ex)
     trace = True
     if isinstance(ex, TrzszError):
         trace = ex.trace_back()
         if ex.is_remote_exit():
-            do_exit(server_side, ex.decode_remote_msg(), False)
+            return
         if ex.is_remote_fail():
-            do_exit(server_side, get_err_msg(ex), trace)
-    err_msg = get_err_msg(ex)
+            if trace:
+                sys.stderr.write(err_msg + '\n')
+            return
     send_string('FAIL' if trace else 'fail', err_msg)
-    do_exit(server_side, err_msg, trace)
+    if trace:
+        sys.stderr.write(err_msg + '\n')
 
-def send_exit(succ, msg):
-    clean_input(0.2)
-    send_string('EXIT', msg)
-    sys.exit(0 if succ else 1)
-
-def check_exit(msg=None):
-    buf = recv_string('EXIT')
-    delay_exit(True, msg or buf)
+def server_error(ex):
+    clean_input(clean_timeout)
+    err_msg = TrzszError.get_err_msg(ex)
+    trace = True
+    if isinstance(ex, TrzszError):
+        trace = ex.trace_back()
+        if ex.is_remote_exit() or ex.is_remote_fail():
+            server_exit(err_msg)
+            return
+    send_string('FAIL' if trace else 'fail', err_msg)
+    server_exit(err_msg)
 
 def check_path_writable(dest_path):
     if not os.path.isdir(dest_path):
@@ -425,9 +514,13 @@ def check_files_readable(file_list):
 def check_tmux():
     if 'TMUX' not in os.environ:
         return NO_TMUX
-    output = subprocess.check_output(
+    out = subprocess.check_output(
         ['tmux', 'display-message', '-p', '#{client_tty}:#{client_control_mode}:#{pane_width}'])
-    tmux_tty, control_mode, pane_width = output.decode('utf8').strip().split(':')
+    output = out.decode('utf8').strip()
+    tokens = output.split(':')
+    if len(tokens) != 3:
+        raise TrzszError('tmux unexpect output: %s' % output)
+    tmux_tty, control_mode, pane_width = tokens
     if control_mode == '1' or (not tmux_tty.startswith('/')) or (not os.path.exists(tmux_tty)):
         return TMUX_CONTROL_MODE
     global tmux_real_stdout, tmux_pane_width
@@ -453,7 +546,11 @@ def reconfigure_stdin():
     except AttributeError:
         pass
 
-def send_files(file_list, callback=None, binary=False, escape_chars=None, max_buf_size=10*1024*1024):
+def send_files(file_list, callback=None):
+    binary = transfer_config.get('binary', False)
+    max_buf_size = transfer_config.get('bufsize', 10 * 1024 * 1024)
+    escape_chars = transfer_config.get('escape_chars', [])
+
     num = len(file_list)
     send_integer('NUM', num)
     check_integer(num)
@@ -525,7 +622,12 @@ def open_dest_file(file_path):
             err_msg = str(e)
         raise TrzszError(err_msg, trace=False)
 
-def recv_files(dest_path, callback=None, overwrite=False, binary=False, escape_chars=None, timeout=100):
+def recv_files(dest_path, callback=None):
+    binary = transfer_config.get('binary', False)
+    overwrite = transfer_config.get('overwrite', False)
+    timeout = transfer_config.get('timeout', 100)
+    escape_chars = transfer_config.get('escape_chars', [])
+
     num = recv_integer('NUM')
     send_integer('SUCC', num)
     if callback:

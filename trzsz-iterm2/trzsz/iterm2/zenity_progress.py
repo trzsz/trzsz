@@ -43,7 +43,9 @@ class ZenityProgressBar(TrzszCallback):
         try:
             title = '%s file(s)' % self.action
             self.proc = subprocess.Popen(['/usr/local/bin/zenity', '--progress', '--title', title, '--text', ''],
-                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                         stdin=subprocess.PIPE,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
         except EnvironmentError:
             pass
 

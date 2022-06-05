@@ -21,9 +21,7 @@
 # SOFTWARE.
 
 import sys
-import tty
 import time
-import termios
 import argparse
 from trzsz.libs.utils import *
 from trzsz.svr.__version__ import __version__
@@ -36,9 +34,19 @@ def main():
     parser.add_argument('-y', '--overwrite', action='store_true', help='yes, overwrite existing file(s)')
     parser.add_argument('-b', '--binary', action='store_true', help='binary transfer mode, faster for binary files')
     parser.add_argument('-e', '--escape', action='store_true', help='escape all known control characters')
-    parser.add_argument('-B', '--bufsize', min_size='1K', max_size='1G', default='10M', action=BufferSizeParser,
-                        metavar='N', help='max buffer chunk size (1K<=N<=1G). (default: 10M)')
-    parser.add_argument('-t', '--timeout', type=int, default=100, metavar='N',
+    parser.add_argument('-B',
+                        '--bufsize',
+                        min_size='1K',
+                        max_size='1G',
+                        default='10M',
+                        action=BufferSizeParser,
+                        metavar='N',
+                        help='max buffer chunk size (1K<=N<=1G). (default: 10M)')
+    parser.add_argument('-t',
+                        '--timeout',
+                        type=int,
+                        default=100,
+                        metavar='N',
                         help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 100)')
     parser.add_argument('file', nargs='+', type=convert_to_unicode, help='file(s) to be sent')
     args = parser.parse_args()
@@ -51,44 +59,47 @@ def main():
         return
 
     tmux_mode = check_tmux()
-    if tmux_mode == TMUX_CONTROL_MODE and args.binary:
-        '''
-        1. In tmux control mode, tmux will convert some invisible characters to Octal text.
-           E.g., tmux will convert ascii '\0' to text "\000", which from 1 byte to 4 bytes.
-        2. Got some junk data from stdin in tmux control mode, e.g. '[?1;2c', don't know why.
-        '''
+    if args.binary and tmux_mode == TMUX_CONTROL_MODE:
+        # 1. In tmux control mode, tmux will convert some invisible characters to Octal text.
+        #    E.g., tmux will convert ascii '\0' to text "\000", which from 1 byte to 4 bytes.
+        # 2. Got some junk data from stdin in tmux control mode, e.g. '[?1;2c', don't know why.
         sys.stdout.write('Binary download in tmux control mode is slower, auto switch to base64 mode.\n')
         args.binary = False
+    if args.binary and is_windows:
+        sys.stdout.write('Binary download on Windows is not supported, auto switch to base64 mode.\n')
+        args.binary = False
+
+    unique_id = '0'
     if tmux_mode == TMUX_NORMAL_MODE:
         sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < get_columns() < 40 else '\n\x1b[1A\x1b[0J')
-
-    unique_id = str(int(time.time() * 1000) if tmux_mode == TMUX_NORMAL_MODE else 0)[::-1]
+        unique_id = str(int(time.time() * 1000))[::-1]
+    if is_windows:
+        unique_id = '1'
     sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:S:%s:%s\n' % (__version__, unique_id))
     sys.stdout.flush()
 
     try:
-        tty.setraw(sys.stdin.fileno(), termios.TCSADRAIN)
+        set_stdin_raw()
         reconfigure_stdin()
 
         action = recv_action()
 
         if not action.get('confirm', False):
-            delay_exit(False, 'Cancelled')
+            server_exit('Cancelled')
+            return
 
         # check if the client doesn't support binary mode
         if args.binary and action.get('binary') is False:
             args.binary = False
 
-        escape_chars = []
+        send_config(args, [])
 
-        send_config(args, escape_chars)
+        send_files(file_list, None)
 
-        send_files(file_list, None, args.binary, escape_chars, args.bufsize)
-
-        check_exit()
+        server_exit(recv_exit())
 
     except Exception as e:
-        fail_exit(e, True)
+        server_error(e)
 
 if __name__ == '__main__':
     main()

@@ -27,8 +27,8 @@ version_regex = r'[ \t]*__version__[ \t]*=[ \t]*[\'"](\d+\.\d+\.\d+)[\'"]'
 with open('trzsz/iterm2/__version__.py', 'r') as f:
     version = re.search(version_regex, f.read()).group(1)
 
-with open('README.md', 'r') as f:
-    long_description = f.read()
+with open('README.md', 'rb') as f:
+    long_description = f.read().decode('utf8')
 
 classifiers = [
     'Development Status :: 5 - Production/Stable',
