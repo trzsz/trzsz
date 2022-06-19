@@ -34,7 +34,7 @@
 
   | Name | Value | Note |
   | ---- | ----- | ---- |
-  | Regular Expression | `:(:TRZSZ:TRANSFER:[SR]:\d+\.\d+\.\d+:\d+)` | <!-- avoid triple click copy a newline --> No space at the end |
+  | Regular Expression | `:(:TRZSZ:TRANSFER:[SRD]:\d+\.\d+\.\d+:\d+)` | <!-- avoid triple click copy a newline --> No space at the end |
   | Action | `Run Silent Coprocess...` | |
   | Parameters | `/usr/local/bin/trzsz-iterm2 \1` | <!-- avoid triple click copy a newline --> No space at the end |
   | Enabled | ✅ | Checked |

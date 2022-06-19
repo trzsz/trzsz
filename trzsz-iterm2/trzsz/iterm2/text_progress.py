@@ -120,7 +120,7 @@ class TextProgressBar(TrzszCallback):
         self.step = step
         self._show_progress()
 
-    def on_done(self, name):
+    def on_done(self):
         pass
 
     def _show_progress(self):

@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2021 Lonny Wong
+# Copyright (c) 2022 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -82,11 +82,11 @@ class ZenityProgressBar(TrzszCallback):
             if self.idx < self.num or step < self.size:
                 stop_transferring()
 
-    def on_done(self, name):
+    def on_done(self):
         if not self.proc:
             return
         try:
-            self.proc.stdin.write(('# %s %s finished.\n' % (self.action, name)).encode('utf8'))
+            self.proc.stdin.write(('# %s %s finished.\n' % (self.action, self.name)).encode('utf8'))
             self.proc.stdin.flush()
         except EnvironmentError:
             if self.idx < self.num:

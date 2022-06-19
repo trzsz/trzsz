@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2021 Lonny Wong
+# Copyright (c) 2022 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,7 @@ def main():
     parser.add_argument('-y', '--overwrite', action='store_true', help='yes, overwrite existing file(s)')
     parser.add_argument('-b', '--binary', action='store_true', help='binary transfer mode, faster for binary files')
     parser.add_argument('-e', '--escape', action='store_true', help='escape all known control characters')
+    parser.add_argument('-d', '--directory', action='store_true', help='transfer directories and files')
     parser.add_argument('-B',
                         '--bufsize',
                         min_size='1K',
@@ -45,9 +46,9 @@ def main():
     parser.add_argument('-t',
                         '--timeout',
                         type=int,
-                        default=100,
+                        default=10,
                         metavar='N',
-                        help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 100)')
+                        help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 10)')
     parser.add_argument('path', nargs='?', default='.', help='path to save file(s). (default: current directory)')
     args = parser.parse_args()
     dest_path = convert_to_unicode(os.path.abspath(args.path))
@@ -80,7 +81,9 @@ def main():
         unique_id = str(int(time.time() * 1000))[::-1]
     if is_windows:
         unique_id = '1'
-    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:R:%s:%s\n' % (__version__, unique_id))
+
+    mode = 'D' if args.directory else 'R'
+    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:%s:%s:%s\n' % (mode, __version__, unique_id))
     sys.stdout.flush()
 
     try:
@@ -96,6 +99,9 @@ def main():
         # check if the client doesn't support binary mode
         if args.binary and action.get('binary') is False:
             args.binary = False
+        # check if the client doesn't support transfer directory
+        if args.directory and action.get('support_dir') is not True:
+            raise TrzszError("The client doesn't support transfer directory", trace=False)
 
         send_config(args, get_escape_chars(args.escape))
 

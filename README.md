@@ -38,18 +38,6 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
   brew install trzsz
   ```
 
-* with Node.js
-  ```
-  sudo npm install -g trzsz
-  ```
-
-* on Ubuntu
-  ```
-  sudo add-apt-repository ppa:trzsz/ppa
-  sudo apt update
-  sudo apt install trzsz
-  ```
-
 &nbsp;&nbsp;Can be installed without `sudo`, just add the installation path ( e.g. `~/.local/bin` ) to the `PATH` environment.
 
 
@@ -72,7 +60,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 #### `trz` upload files to the remote server
   ```
-  usage: trz [-h] [-v] [-q] [-y] [-b] [-e] [-B N] [-t N] [path]
+  usage: trz [-h] [-v] [-q] [-y] [-b] [-e] [-d] [-B N] [-t N] [path]
 
   Receive file(s), similar to rz and compatible with tmux.
 
@@ -86,14 +74,15 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
     -y, --overwrite    yes, overwrite existing file(s)
     -b, --binary       binary transfer mode, faster for binary files
     -e, --escape       escape all known control characters
+    -d, --directory    transfer directories and files
     -B N, --bufsize N  max buffer chunk size (1K<=N<=1G). (default: 10M)
     -t N, --timeout N  timeout ( N seconds ) for each buffer chunk.
-                       N <= 0 means never timeout. (default: 100)
+                       N <= 0 means never timeout. (default: 10)
   ```
 
 #### `tsz` download files from the remote server
   ```
-  usage: tsz [-h] [-v] [-q] [-y] [-b] [-e] [-B N] [-t N] file [file ...]
+  usage: tsz [-h] [-v] [-q] [-y] [-b] [-e] [-d] [-B N] [-t N] file [file ...]
 
   Send file(s), similar to sz and compatible with tmux.
 
@@ -107,9 +96,10 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
     -y, --overwrite    yes, overwrite existing file(s)
     -b, --binary       binary transfer mode, faster for binary files
     -e, --escape       escape all known control characters
+    -d, --directory    transfer directories and files
     -B N, --bufsize N  max buffer chunk size (1K<=N<=1G). (default: 10M)
     -t N, --timeout N  timeout ( N seconds ) for each buffer chunk.
-                       N <= 0 means never timeout. (default: 100)
+                       N <= 0 means never timeout. (default: 10)
   ```
 
 #### Trouble shooting

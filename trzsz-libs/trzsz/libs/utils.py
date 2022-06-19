@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2021 Lonny Wong
+# Copyright (c) 2022 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,7 @@ import os
 import re
 import sys
 import json
+import stat
 import time
 import zlib
 import atexit
@@ -131,7 +132,7 @@ class TrzszCallback(object):
     def on_step(self, step):
         pass
 
-    def on_done(self, name):
+    def on_done(self):
         pass
 
 class BufferSizeParser(argparse.Action):
@@ -389,7 +390,7 @@ def recv_json(typ, may_has_junk=False):
         raise TrzszError(dic, str(e))
 
 def send_action(confirm, version, remote_is_windows):
-    action = {'lang': 'py', 'confirm': confirm, 'version': version}
+    action = {'lang': 'py', 'confirm': confirm, 'version': version, 'support_dir': True}
     if remote_is_windows:
         global protocol_newline
         protocol_newline = '!\n'
@@ -409,6 +410,8 @@ def send_config(args, escape_chars):
     if args.binary:
         config['binary'] = True
         config['escape_chars'] = escape_chars
+    if args.directory:
+        config['directory'] = True
     if args.bufsize:
         config['bufsize'] = args.bufsize
     if args.timeout:
@@ -456,7 +459,7 @@ def recv_exit():
     return recv_string('EXIT')
 
 def server_exit(msg):
-    clean_input(0.2)
+    clean_input(0.5)
     reset_stdin_tty()
     sys.stdout.write('\x1b8\x1b[0J')
     if is_windows:
@@ -499,17 +502,51 @@ def check_path_writable(dest_path):
         raise TrzszError('No permission to write: %s' % dest_path, trace=False)
     return True
 
-def check_files_readable(file_list):
-    for f in file_list:
-        if not os.path.exists(f):
-            raise TrzszError('No such file: %s' % f, trace=False)
-        if os.path.isdir(f):
-            raise TrzszError('Is a directory: %s' % f, trace=False)
-        if not os.path.isfile(f):
-            raise TrzszError('Not a regular file: %s' % f, trace=False)
-        if not os.access(f, os.R_OK):
-            raise TrzszError('No permission to read: %s' % f, trace=False)
-    return True
+def resolve_link(path):
+    while True:
+        if not os.path.islink(path):
+            return path
+        path = os.readlink(path)
+
+def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):
+    if not stat.S_ISDIR(mode):
+        if not stat.S_ISREG(mode):
+            raise TrzszError('Not a regular file: %s' % path, trace=False)
+        if not os.access(path, os.R_OK):
+            raise TrzszError('No permission to read: %s' % path, trace=False)
+        file_list.append({'path_id': path_id, 'abs_path': path, 'path_name': rel_path, 'is_dir': False})
+        return
+    real_path = resolve_link(path)
+    if real_path in visited_dir:
+        raise TrzszError('Loop link: %s' % path, trace=False)
+    visited_dir.add(real_path)
+    file_list.append({'path_id': path_id, 'abs_path': path, 'path_name': rel_path, 'is_dir': True})
+    for file in os.listdir(path):
+        p = os.path.join(path, file)
+        r = rel_path[:]
+        r.append(file)
+        check_path_readable(path_id, p, os.stat(p).st_mode, file_list, r, visited_dir)
+
+def check_paths_readable(paths, directory):
+    file_list = []
+    visited_dir = set()
+    for i, p in enumerate(paths):
+        path = os.path.abspath(p)
+        if not os.path.exists(path):
+            raise TrzszError('No such file: %s' % path, trace=False)
+        mode = os.stat(path).st_mode
+        if not directory and stat.S_ISDIR(mode):
+            raise TrzszError('Is a directory: %s' % path, trace=False)
+        check_path_readable(i, path, mode, file_list, [os.path.basename(path)], visited_dir)
+    return file_list
+
+def check_duplicate_names(files):
+    names = set()
+    for f in files:
+        p = os.path.join(*f['path_name'])
+        if p in names:
+            raise TrzszError('Duplicate name: %s' % p, trace=False)
+        names.add(p)
 
 def check_tmux():
     if 'TMUX' not in os.environ:
@@ -546,36 +583,64 @@ def reconfigure_stdin():
     except AttributeError:
         pass
 
-def send_files(file_list, callback=None):
-    binary = transfer_config.get('binary', False)
-    max_buf_size = transfer_config.get('bufsize', 10 * 1024 * 1024)
-    escape_chars = transfer_config.get('escape_chars', [])
-
-    num = len(file_list)
+def send_file_num(num, callback):
     send_integer('NUM', num)
     check_integer(num)
     if callback:
         callback.on_num(num)
 
+def send_file_name(file, directory, callback):
+    name = file['path_name'][-1]
+    if directory:
+        f = file.copy()
+        del f['abs_path']
+        send_json('NAME', f)
+    else:
+        send_string('NAME', name)
+    remote_name = recv_string('SUCC')
+    if callback:
+        callback.on_name(name)
+    return remote_name
+
+def send_file_size(file, callback):
+    file_size = os.path.getsize(file['abs_path'])
+    send_integer('SIZE', file_size)
+    check_integer(file_size)
+    if callback:
+        callback.on_size(file_size)
+    return file_size
+
+def send_file_md5(digest, callback):
+    send_binary('MD5', digest)
+    check_binary(digest)
+    if callback:
+        callback.on_done()
+
+def send_files(file_list, callback=None):
+    binary = transfer_config.get('binary', False)
+    directory = transfer_config.get('directory', False)
+    max_buf_size = transfer_config.get('bufsize', 10 * 1024 * 1024)
+    escape_chars = transfer_config.get('escape_chars', [])
+
+    send_file_num(len(file_list), callback)
+
     buf_size = 1024
     remote_list = []
 
-    for file_path in file_list:
-        name = os.path.basename(file_path)
-        send_string('NAME', name)
-        file_name = recv_string('SUCC')
-        if callback:
-            callback.on_name(name)
+    for file in file_list:
+        remote_name = send_file_name(file, directory, callback)
 
-        file_size = os.path.getsize(file_path)
-        send_integer('SIZE', file_size)
-        check_integer(file_size)
-        if callback:
-            callback.on_size(file_size)
+        if remote_name not in remote_list:
+            remote_list.append(remote_name)
+
+        if file['is_dir']:
+            continue
+
+        file_size = send_file_size(file, callback)
 
         step = 0
         m = hashlib.md5()
-        with open(file_path, 'rb') as f:
+        with open(file['abs_path'], 'rb') as f:
             while step < file_size:
                 begin_time = time.time()
                 data = f.read(buf_size)
@@ -586,20 +651,22 @@ def send_files(file_list, callback=None):
                 if callback:
                     callback.on_step(step)
                 chunk_time = time.time() - begin_time
-                if chunk_time < 1.0 and buf_size < max_buf_size:
+                if chunk_time < 0.5 and buf_size < max_buf_size:
                     buf_size = min(buf_size * 2, max_buf_size)
                 global max_chunk_time
                 if chunk_time > max_chunk_time:
                     max_chunk_time = chunk_time
 
-        digest = m.digest()
-        send_binary('MD5', digest)
-        check_binary(digest)
-        if callback:
-            callback.on_done(file_name)
-        remote_list.append(file_name)
+        send_file_md5(m.digest(), callback)
 
     return remote_list
+
+def recv_file_num(callback):
+    num = recv_integer('NUM')
+    send_integer('SUCC', num)
+    if callback:
+        callback.on_num(num)
+    return num
 
 def get_new_name(path, name):
     if not os.path.exists(os.path.join(path, name)):
@@ -610,50 +677,118 @@ def get_new_name(path, name):
             return new_name
     raise TrzszError('Fail to assign new file name', trace=False)
 
-def open_dest_file(file_path):
+def do_create_file(path):
     try:
-        return open(file_path, 'wb')
+        return open(path, 'wb')
     except IOError as e:
         if e.errno == 13:
-            err_msg = 'No permission to write: %s' % file_path
+            err_msg = 'No permission to write: %s' % path
         elif e.errno == 21:
-            err_msg = 'Is a directory: %s' % file_path
+            err_msg = 'Is a directory: %s' % path
         else:
             err_msg = str(e)
         raise TrzszError(err_msg, trace=False)
 
+def do_create_directory(path):
+    if not os.path.exists(path):
+        os.makedirs(path, 0o755)
+    if not os.path.isdir(path):
+        raise TrzszError('Not a directory: %s' % path, trace=False)
+
+def create_file(path, file_name, overwrite):
+    if overwrite:
+        local_name = file_name
+    else:
+        local_name = get_new_name(path, file_name)
+    file = do_create_file(os.path.join(path, local_name))
+    return file, local_name
+
+file_name_map = {}
+
+def create_dir_or_file(path, file, overwrite):
+    if 'path_name' not in file or 'path_id' not in file or 'is_dir' not in file or len(file['path_name']) < 1:
+        raise TrzszError('Invalid name: %s' % path, trace=False)
+
+    file_name = file['path_name'][-1]
+
+    if overwrite:
+        local_name = file['path_name'][0]
+    else:
+        if file['path_id'] in file_name_map:
+            local_name = file_name_map[file['path_id']]
+        else:
+            local_name = get_new_name(path, file['path_name'][0])
+            file_name_map[file['path_id']] = local_name
+
+    if len(file['path_name']) > 1:
+        p = os.path.join(path, local_name, *file['path_name'][1:-1])
+        do_create_directory(p)
+        full_path = os.path.join(p, file_name)
+    else:
+        full_path = os.path.join(path, local_name)
+
+    if file['is_dir']:
+        do_create_directory(full_path)
+        return None, local_name, file_name
+    file = do_create_file(full_path)
+    return file, local_name, file_name
+
+def recv_file_name(path, directory, overwrite, callback):
+    if directory:
+        json_name = recv_json('NAME')
+        file, local_name, file_name = create_dir_or_file(path, json_name, overwrite)
+    else:
+        file_name = recv_string('NAME')
+        file, local_name = create_file(path, file_name, overwrite)
+    send_string('SUCC', local_name)
+    if callback:
+        callback.on_name(file_name)
+    return file, local_name
+
+def recv_file_size(callback):
+    file_size = recv_integer('SIZE')
+    send_integer('SUCC', file_size)
+    if callback:
+        callback.on_size(file_size)
+    return file_size
+
+def recv_file_md5(digest, callback):
+    expect_digest = recv_binary('MD5')
+    if digest != expect_digest:
+        raise TrzszError('Check MD5 failed', trace=False)
+    send_binary('SUCC', digest)
+    if callback:
+        callback.on_done()
+
 def recv_files(dest_path, callback=None):
     binary = transfer_config.get('binary', False)
+    directory = transfer_config.get('directory', False)
     overwrite = transfer_config.get('overwrite', False)
     timeout = transfer_config.get('timeout', 100)
     escape_chars = transfer_config.get('escape_chars', [])
 
-    num = recv_integer('NUM')
-    send_integer('SUCC', num)
-    if callback:
-        callback.on_num(num)
+    num = recv_file_num(callback)
 
     local_list = []
 
     for i in range(num):
-        name = recv_string('NAME')
-        file_name = name if overwrite else get_new_name(dest_path, name)
-        with open_dest_file(os.path.join(dest_path, file_name)) as f:
-            send_string('SUCC', file_name)
-            if callback:
-                callback.on_name(name)
+        file, local_name = recv_file_name(dest_path, directory, overwrite, callback)
 
-            file_size = recv_integer('SIZE')
-            send_integer('SUCC', file_size)
-            if callback:
-                callback.on_size(file_size)
+        if local_name not in local_list:
+            local_list.append(local_name)
+
+        if not file:
+            continue
+
+        with file:
+            file_size = recv_file_size(callback)
 
             step = 0
             m = hashlib.md5()
             while step < file_size:
                 begin_time = time.time()
                 data = recv_data(binary, escape_chars, timeout)
-                f.write(data)
+                file.write(data)
                 step += len(data)
                 if callback:
                     callback.on_step(step)
@@ -664,13 +799,6 @@ def recv_files(dest_path, callback=None):
                 if chunk_time > max_chunk_time:
                     max_chunk_time = chunk_time
 
-        digest = recv_binary('MD5')
-        if digest == m.digest():
-            send_binary('SUCC', digest)
-        else:
-            raise TrzszError('Check MD5 of %s failed' % name, trace=False)
-        if callback:
-            callback.on_done(file_name)
-        local_list.append(file_name)
+        recv_file_md5(m.digest(), callback)
 
     return local_list

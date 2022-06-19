@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2021 Lonny Wong
+# Copyright (c) 2022 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -52,7 +52,7 @@ def run_osascript(script):
             raise TrzszError('Only supports iTerm2', trace=False)
         raise
 
-def choose_save_path(loop, connection):
+def choose_download_path(loop, connection):
     if connection and iterm2.capabilities.supports_file_panels(connection):
         panel = iterm2.OpenPanel()
         panel.message = 'Choose a folder to save file(s)'
@@ -85,12 +85,14 @@ def choose_save_path(loop, connection):
         }
     })();''')
 
-def choose_send_files(loop, connection):
+def choose_upload_paths(loop, connection, directory):
     if connection and iterm2.capabilities.supports_file_panels(connection):
         panel = iterm2.OpenPanel()
         panel.message = 'Choose some files to send'
         panel.options.clear()
         panel.options.append(iterm2.OpenPanel.Options.CAN_CHOOSE_FILES)
+        if directory:
+            panel.options.append(iterm2.OpenPanel.Options.CAN_CHOOSE_DIRECTORIES)
         panel.options.append(iterm2.OpenPanel.Options.ALLOWS_MULTIPLE_SELECTION)
         panel.options.append(iterm2.OpenPanel.Options.SHOWS_HIDDEN_FILES)
         panel.options.append(iterm2.OpenPanel.Options.TREATS_FILE_PACKAGES_AS_DIRECTORIES)
@@ -107,7 +109,7 @@ def choose_send_files(loop, connection):
         app.includeStandardAdditions = true;
         app.activate();
         try {
-            var files = app.chooseFile({
+            var files = app.%s({
                 withPrompt: "Choose some files to send",
                 invisibles: true,
                 showingPackageContents: true,
@@ -121,11 +123,11 @@ def choose_send_files(loop, connection):
         } catch (e) {
             return "";
         }
-    })();''')
+    })();''' % ('chooseFolder' if directory else 'chooseFile'))
     return [f for f in file_list.split('\n') if f]
 
 def download_files(args, loop, connection, session, remote_is_windows):
-    dest_path = args.destpath or choose_save_path(loop, connection)
+    dest_path = args.destpath or choose_download_path(loop, connection)
 
     if not dest_path:
         send_action(False, __version__, remote_is_windows)
@@ -138,11 +140,6 @@ def download_files(args, loop, connection, session, remote_is_windows):
     send_action(True, __version__, remote_is_windows)
     config = recv_config()
 
-    binary = config.get('binary', False)
-    timeout = config.get('timeout', 0)
-    overwrite = config.get('overwrite', False)
-    escape_chars = config.get('escape_chars', [])
-
     callback = None
     if not config.get('quiet', False):
         if args.progress == ProgressType.text and loop and session:
@@ -154,22 +151,21 @@ def download_files(args, loop, connection, session, remote_is_windows):
 
     client_exit('Saved %s to %s' % (', '.join(local_list), dest_path))
 
-def upload_files(args, loop, connection, session, remote_is_windows):
-    file_list = choose_send_files(loop, connection)
-    if not file_list:
+def upload_files(args, loop, connection, session, directory, remote_is_windows):
+    paths = choose_upload_paths(loop, connection, directory)
+    if not paths:
         send_action(False, __version__, remote_is_windows)
         return
 
-    check_files_readable(file_list)
+    file_list = check_paths_readable(paths, directory)
 
     reconfigure_stdin()
 
     send_action(True, __version__, remote_is_windows)
     config = recv_config()
 
-    binary = config.get('binary', False)
-    bufsize = config.get('bufsize', 10 * 1024 * 1024)
-    escape_chars = config.get('escape_chars', [])
+    if config.get('overwrite') is True:
+        check_duplicate_names(file_list)
 
     callback = None
     if not config.get('quiet', False):
@@ -266,7 +262,7 @@ def main():
         parser.add_argument('mode', help='iTerm2 trigger parameter. (generally should be \\1)')
         args = parser.parse_args()
 
-        trigger_regex = r':TRZSZ:TRANSFER:([SR]):(\d+\.\d+\.\d+)(:\d+)?'
+        trigger_regex = r':TRZSZ:TRANSFER:([SRD]):(\d+\.\d+\.\d+)(:\d+)?'
         trigger_match = re.search(trigger_regex, args.mode)
         if not trigger_match:
             raise TrzszError('Please check iTerm2 Trigger configuration', trace=False)
@@ -289,7 +285,9 @@ def main():
         if mode == 'S':
             download_files(args, loop, connection, session, remote_is_windows)
         elif mode == 'R':
-            upload_files(args, loop, connection, session, remote_is_windows)
+            upload_files(args, loop, connection, session, False, remote_is_windows)
+        elif mode == 'D':
+            upload_files(args, loop, connection, session, True, remote_is_windows)
         else:
             raise TrzszError('Unknown transfer mode: %s' % mode, trace=False)
 

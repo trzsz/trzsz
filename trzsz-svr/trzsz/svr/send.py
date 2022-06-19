@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2021 Lonny Wong
+# Copyright (c) 2022 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,7 @@ def main():
     parser.add_argument('-y', '--overwrite', action='store_true', help='yes, overwrite existing file(s)')
     parser.add_argument('-b', '--binary', action='store_true', help='binary transfer mode, faster for binary files')
     parser.add_argument('-e', '--escape', action='store_true', help='escape all known control characters')
+    parser.add_argument('-d', '--directory', action='store_true', help='transfer directories and files')
     parser.add_argument('-B',
                         '--bufsize',
                         min_size='1K',
@@ -45,15 +46,16 @@ def main():
     parser.add_argument('-t',
                         '--timeout',
                         type=int,
-                        default=100,
+                        default=10,
                         metavar='N',
-                        help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 100)')
+                        help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 10)')
     parser.add_argument('file', nargs='+', type=convert_to_unicode, help='file(s) to be sent')
     args = parser.parse_args()
-    file_list = args.file
 
     try:
-        check_files_readable(file_list)
+        file_list = check_paths_readable(args.file, args.directory)
+        if args.overwrite:
+            check_duplicate_names(file_list)
     except TrzszError as e:
         sys.stderr.write(str(e) + '\n')
         return
@@ -91,6 +93,9 @@ def main():
         # check if the client doesn't support binary mode
         if args.binary and action.get('binary') is False:
             args.binary = False
+        # check if the client doesn't support transfer directory
+        if args.directory and action.get('support_dir') is not True:
+            raise TrzszError("The client doesn't support transfer directory", trace=False)
 
         send_config(args, [])
 
