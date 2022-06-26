@@ -176,6 +176,7 @@ clean_timeout = 0.1
 
 def clean_input(timeout):
     if is_windows:
+        time.sleep(timeout)
         return
     while True:
         r, w, x = select.select([sys.stdin], [], [], timeout)
@@ -196,21 +197,10 @@ def send_line(typ, buf):
     tmux_real_stdout.write('#%s:%s%s' % (typ, buf, protocol_newline))
     tmux_real_stdout.flush()
 
-trzsz_stopped = False
-interruptible = False
-
 def read_line():
-    global interruptible
     s = ''
     while True:
-        if trzsz_stopped:
-            raise TrzszError('Stopped', trace=False)
-        try:
-            interruptible = True
-            c = sys.stdin.read(1)
-            interruptible = False
-        except KeyboardInterrupt:
-            raise TrzszError('Stopped', trace=False)
+        c = sys.stdin.read(1)
         if c == '\n':
             break
         if c == '\x03':
@@ -237,18 +227,10 @@ def is_trzsz_letter(b):
     return False
 
 def read_line_on_windows():
-    global interruptible
     s = ''
     skip_vt100 = False
     while True:
-        if trzsz_stopped:
-            raise TrzszError('Stopped', trace=False)
-        try:
-            interruptible = True
-            c = sys.stdin.read(1)
-            interruptible = False
-        except KeyboardInterrupt:
-            raise TrzszError('Stopped', trace=False)
+        c = sys.stdin.read(1)
         if c == '!':
             break
         if c == '\x03':
@@ -435,11 +417,9 @@ def recv_config():
 max_chunk_time = 0
 
 def stop_transferring():
-    global clean_timeout, trzsz_stopped
-    trzsz_stopped = True
+    global clean_timeout
     clean_timeout = max(max_chunk_time * 2, 0.5)
-    if interruptible:
-        os.kill(os.getpid(), signal.SIGINT)
+    os.kill(os.getpid(), signal.SIGINT)
 
 def terminate(_signum, _frame):
     raise TrzszError('Terminated', trace=False)
@@ -447,12 +427,11 @@ def terminate(_signum, _frame):
 signal.signal(signal.SIGTERM, terminate)
 
 def interrupte(_signum, _frame):
-    raise TrzszError('Interrupted', trace=False)
+    raise TrzszError('Stopped', trace=False)
 
 signal.signal(signal.SIGINT, interrupte)
 
 def client_exit(msg):
-    clean_input(0.2)
     send_string('EXIT', msg)
 
 def recv_exit():
@@ -462,8 +441,6 @@ def server_exit(msg):
     clean_input(0.5)
     reset_stdin_tty()
     sys.stdout.write('\x1b8\x1b[0J')
-    if is_windows:
-        sys.stdout.write('\r\n')
     sys.stdout.write(msg)
     sys.stdout.write('\n')
 
@@ -529,7 +506,6 @@ def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):
 
 def check_paths_readable(paths, directory):
     file_list = []
-    visited_dir = set()
     for i, p in enumerate(paths):
         path = os.path.abspath(p)
         if not os.path.exists(path):
@@ -537,6 +513,7 @@ def check_paths_readable(paths, directory):
         mode = os.stat(path).st_mode
         if not directory and stat.S_ISDIR(mode):
             raise TrzszError('Is a directory: %s' % path, trace=False)
+        visited_dir = set()
         check_path_readable(i, path, mode, file_list, [os.path.basename(path)], visited_dir)
     return file_list
 
@@ -644,14 +621,15 @@ def send_files(file_list, callback=None):
             while step < file_size:
                 begin_time = time.time()
                 data = f.read(buf_size)
+                size = len(data)
                 send_data(data, binary, escape_chars)
                 m.update(data)
-                check_integer(len(data))
-                step += len(data)
+                check_integer(size)
+                step += size
                 if callback:
                     callback.on_step(step)
                 chunk_time = time.time() - begin_time
-                if chunk_time < 0.5 and buf_size < max_buf_size:
+                if size == buf_size and chunk_time < 0.5 and buf_size < max_buf_size:
                     buf_size = min(buf_size * 2, max_buf_size)
                 global max_chunk_time
                 if chunk_time > max_chunk_time:
@@ -681,10 +659,10 @@ def do_create_file(path):
     try:
         return open(path, 'wb')
     except IOError as e:
-        if e.errno == 13:
-            err_msg = 'No permission to write: %s' % path
-        elif e.errno == 21:
+        if e.errno == 21 or (is_windows and os.path.isdir(path)):
             err_msg = 'Is a directory: %s' % path
+        elif e.errno == 13:
+            err_msg = 'No permission to write: %s' % path
         else:
             err_msg = str(e)
         raise TrzszError(err_msg, trace=False)
