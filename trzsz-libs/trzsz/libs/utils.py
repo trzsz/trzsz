@@ -479,12 +479,6 @@ def check_path_writable(dest_path):
         raise TrzszError('No permission to write: %s' % dest_path, trace=False)
     return True
 
-def resolve_link(path):
-    while True:
-        if not os.path.islink(path):
-            return path
-        path = os.readlink(path)
-
 def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):
     if not stat.S_ISDIR(mode):
         if not stat.S_ISREG(mode):
@@ -493,9 +487,9 @@ def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):
             raise TrzszError('No permission to read: %s' % path, trace=False)
         file_list.append({'path_id': path_id, 'abs_path': path, 'path_name': rel_path, 'is_dir': False})
         return
-    real_path = resolve_link(path)
+    real_path = os.path.realpath(path)
     if real_path in visited_dir:
-        raise TrzszError('Loop link: %s' % path, trace=False)
+        raise TrzszError('Duplicate link: %s' % path, trace=False)
     visited_dir.add(real_path)
     file_list.append({'path_id': path_id, 'abs_path': path, 'path_name': rel_path, 'is_dir': True})
     for file in os.listdir(path):
