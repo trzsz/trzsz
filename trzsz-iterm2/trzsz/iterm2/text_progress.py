@@ -121,7 +121,12 @@ class TextProgressBar(TrzszCallback):
         self._show_progress()
 
     def on_done(self):
-        pass
+        if not self.first_write:
+            if self.tmux_pane_width > 0:
+                self._inject_to_iterm2(f'\x1b[{self.columns}D')
+            else:
+                self._inject_to_iterm2('\r')
+            self.first_write = True
 
     def _show_progress(self):
         now = time.time()
