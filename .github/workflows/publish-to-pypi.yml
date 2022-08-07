@@ -34,22 +34,22 @@ jobs:
         run: python3 setup.py sdist bdist_wheel
         working-directory: trzsz-iterm2
       - name: Publish trzsz to PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_PYPI_API_TOKEN }}
           packages_dir: dist/
       - name: Publish trzsz-libs to PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_LIBS_PYPI_API_TOKEN }}
           packages_dir: trzsz-libs/dist/
       - name: Publish trzsz-svr to PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_SVR_PYPI_API_TOKEN }}
           packages_dir: trzsz-svr/dist/
       - name: Publish trzsz-iterm2 to PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_ITERM2_PYPI_API_TOKEN }}
           packages_dir: trzsz-iterm2/dist/

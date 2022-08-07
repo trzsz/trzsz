@@ -35,25 +35,25 @@ jobs:
         run: python3 setup.py sdist bdist_wheel
         working-directory: trzsz-iterm2
       - name: Publish trzsz to Test PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
           packages_dir: dist/
       - name: Publish trzsz-libs to Test PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_LIBS_TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
           packages_dir: trzsz-libs/dist/
       - name: Publish trzsz-svr to Test PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_SVR_TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
           packages_dir: trzsz-svr/dist/
       - name: Publish trzsz-iterm2 to Test PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_ITERM2_TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
