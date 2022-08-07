@@ -24,6 +24,7 @@ import os
 import re
 import sys
 import enum
+import select
 import asyncio
 import argparse
 import tempfile
@@ -151,13 +152,19 @@ def download_files(args, loop, connection, session, remote_is_windows):
 
     client_exit('Saved %s to %s' % (', '.join(local_list), dest_path))
 
-def upload_files(args, loop, connection, session, directory, remote_is_windows):
-    paths = choose_upload_paths(loop, connection, directory)
-    if not paths:
-        send_action(False, __version__, remote_is_windows)
-        return
+upload_file_list = None
 
-    file_list = check_paths_readable(paths, directory)
+def upload_files(args, loop, connection, session, directory, remote_is_windows):
+    global upload_file_list
+    if upload_file_list:
+        file_list = upload_file_list
+        upload_file_list = None
+    else:
+        paths = choose_upload_paths(loop, connection, directory)
+        if not paths:
+            send_action(False, __version__, remote_is_windows)
+            return
+        file_list = check_paths_readable(paths, directory)
 
     reconfigure_stdin()
 
@@ -243,6 +250,57 @@ def side_thread(loop):
     asyncio.set_event_loop(loop)
     loop.run_forever()
 
+def read_server_output(timeout):
+    output = b''
+    while True:
+        r, w, x = select.select([sys.stdin], [], [], timeout)
+        if not r:
+            return output
+        output += os.read(sys.stdin.fileno(), 1)
+
+trzsz_trigger_regex = r':TRZSZ:TRANSFER:([SRD]):(\d+\.\d+\.\d+)(:\d+)?'
+
+def drag_files_to_upload(file_paths, loop, session):
+    if not loop or not session:
+        sys.stderr.write('Please enable iTerm2 Python API')
+        return None
+
+    try:
+        file_list = check_paths_readable(file_paths, True)
+
+        sys.stdout.write('\x03')
+        sys.stdout.flush()
+        read_server_output(0.2)
+
+        has_dir = False
+        for file in file_list:
+            if file['is_dir'] or len(file['path_name']) > 1:
+                has_dir = True
+                break
+        if has_dir:
+            sys.stdout.write('trz -d\r')
+        else:
+            sys.stdout.write('trz\r')
+        sys.stdout.flush()
+
+        for i in range(20):
+            output = read_server_output(0.05)
+            idx = output.find(b'\n')
+            if idx > 0 and output[:idx].rstrip() in (b'trz', b'trz -d'):
+                output = b'\r\n' + output[idx + 1:]
+            trigger_match = re.search(trzsz_trigger_regex, output.decode('ascii'))
+            if trigger_match:
+                loop.create_task(session.async_inject(output.replace(b'TRANSFER', b'DRAGFILE')))
+                global upload_file_list
+                upload_file_list = file_list
+                return trigger_match
+            loop.create_task(session.async_inject(output))
+        return None
+
+    except Exception as e:
+        sys.stderr.write(TrzszError.get_err_msg(e))
+        return None
+
 def main():
     try:
         parser = argparse.ArgumentParser(description='iTerm2 coprocess of trzsz which similar to lrzsz ' \
@@ -259,13 +317,27 @@ def main():
                             type=str,
                             default=None,
                             help='the default save destination path. (default: choose each time)')
-        parser.add_argument('mode', help='iTerm2 trigger parameter. (generally should be \\1)')
+        parser.add_argument('args', nargs='+', help='iTerm2 trigger parameters. (generally should be \\1)')
         args = parser.parse_args()
 
-        trigger_regex = r':TRZSZ:TRANSFER:([SRD]):(\d+\.\d+\.\d+)(:\d+)?'
-        trigger_match = re.search(trigger_regex, args.mode)
-        if not trigger_match:
-            raise TrzszError('Please check iTerm2 Trigger configuration', trace=False)
+        loop = asyncio.new_event_loop()
+        force = args.progress == ProgressType.text and args.args[0] != 'dragfiles'
+        connection, session = loop.run_until_complete(get_running_session(force))
+        if connection and session:
+            thread = threading.Thread(target=side_thread, args=(loop, ), daemon=True)
+            thread.start()
+            asyncio.run_coroutine_threadsafe(keystroke_filter(connection, session), loop)
+            asyncio.run_coroutine_threadsafe(keystroke_monitor(connection, session), loop)
+
+        if len(args.args) > 1 and args.args[0] == 'dragfiles':
+            trigger_match = drag_files_to_upload(args.args[1:], loop, session)
+            if not trigger_match:
+                return
+        else:
+            trigger_match = re.search(trzsz_trigger_regex, args.args[0])
+            if not trigger_match:
+                raise TrzszError('Please check iTerm2 Trigger configuration', trace=False)
+
         mode = trigger_match.group(1)
         version = trigger_match.group(2)
         unique_id = trigger_match.group(3)
@@ -273,15 +345,6 @@ def main():
 
         if unique_id_exists(unique_id):
             return
-
-        loop = asyncio.new_event_loop()
-        connection, session = loop.run_until_complete(get_running_session(args.progress == ProgressType.text))
-        if connection and session:
-            thread = threading.Thread(target=side_thread, args=(loop, ), daemon=True)
-            thread.start()
-            asyncio.run_coroutine_threadsafe(keystroke_filter(connection, session), loop)
-            asyncio.run_coroutine_threadsafe(keystroke_monitor(connection, session), loop)
-
         if mode == 'S':
             download_files(args, loop, connection, session, remote_is_windows)
         elif mode == 'R':
