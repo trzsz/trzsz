@@ -71,12 +71,14 @@ def main():
         sys.stdout.write('Binary download on Windows is not supported, auto switch to base64 mode.\n')
         args.binary = False
 
-    unique_id = '0'
-    if tmux_mode == TMUX_NORMAL_MODE:
-        sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < get_columns() < 40 else '\n\x1b[1A\x1b[0J')
-        unique_id = str(int(time.time() * 1000))[::-1]
+    unique_id = str(int(time.time() * 1000 % 10e10))
     if is_windows:
-        unique_id = '1'
+        unique_id += '10'
+    elif tmux_mode == TMUX_NORMAL_MODE:
+        sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < get_columns() < 40 else '\n\x1b[1A\x1b[0J')
+        unique_id += '20'
+    else:
+        unique_id += '00'
     sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:S:%s:%s\n' % (__version__, unique_id))
     sys.stdout.flush()
 

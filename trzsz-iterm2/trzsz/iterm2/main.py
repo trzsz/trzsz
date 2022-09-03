@@ -231,6 +231,8 @@ async def get_running_session(force):
 def unique_id_exists(unique_id):
     if not unique_id or len(unique_id) < 8:
         return False
+    if len(unique_id) == 14 and unique_id.endswith('00'):
+        return False
     unique_id = unique_id[1:] + '\n'
     unique_id_path = os.path.join(tempfile.gettempdir(), 'trzsz_unique_id')
     try:
@@ -341,7 +343,9 @@ def main():
         mode = trigger_match.group(1)
         version = trigger_match.group(2)
         unique_id = trigger_match.group(3)
-        remote_is_windows = unique_id == ':1'
+        remote_is_windows = False
+        if unique_id == ':1' or (len(unique_id) == 14 and unique_id.endswith('10')):
+            remote_is_windows = True
 
         if unique_id_exists(unique_id):
             return
