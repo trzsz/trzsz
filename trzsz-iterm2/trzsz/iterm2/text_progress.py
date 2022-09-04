@@ -32,18 +32,19 @@ def display_length(s):
 def ellipsis_string(s, m):
     m -= 3
     l = 0
-    r = ''
+    r = []
     for c in s:
         if len(c.encode('utf8')) > 1:
             if l + 2 > m:
-                return r + '...', l + 3
+                break
             l += 2
         else:
             if l + 1 > m:
-                return r + '...', l + 3
+                break
             l += 1
-        r += c
-    return r + '...', l + 3
+        r.append(c)
+    r.append('...')
+    return ''.join(r), l + 3
 
 def size_to_str(size):
     if size < 0:

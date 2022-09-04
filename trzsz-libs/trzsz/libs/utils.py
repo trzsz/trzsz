@@ -198,15 +198,15 @@ def send_line(typ, buf):
     tmux_real_stdout.flush()
 
 def read_line():
-    s = ''
+    s = []
     while True:
         c = sys.stdin.read(1)
         if c == '\n':
             break
         if c == '\x03':
             raise TrzszError('Interrupted', trace=False)
-        s += c
-    return s
+        s.append(c)
+    return ''.join(s)
 
 def is_vt100_end(b):
     if 'a' <= b <= 'z':
@@ -227,7 +227,7 @@ def is_trzsz_letter(b):
     return False
 
 def read_line_on_windows():
-    s = ''
+    s = []
     skip_vt100 = False
     while True:
         c = sys.stdin.read(1)
@@ -241,8 +241,8 @@ def read_line_on_windows():
         elif c == '\x1b':
             skip_vt100 = True
         elif is_trzsz_letter(c):
-            s += c
-    return s
+            s.append(c)
+    return ''.join(s)
 
 def recv_line(expect_typ, may_has_junk=False):
     if is_windows:

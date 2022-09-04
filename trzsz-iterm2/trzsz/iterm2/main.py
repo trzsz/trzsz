@@ -253,12 +253,12 @@ def side_thread(loop):
     loop.run_forever()
 
 def read_server_output(timeout):
-    output = b''
+    output = []
     while True:
         r, w, x = select.select([sys.stdin], [], [], timeout)
         if not r:
-            return output
-        output += os.read(sys.stdin.fileno(), 1)
+            return b''.join(output)
+        output.append(os.read(sys.stdin.fileno(), 1))
 
 trzsz_trigger_regex = r':TRZSZ:TRANSFER:([SRD]):(\d+\.\d+\.\d+)(:\d+)?'
 
