@@ -45,10 +45,8 @@ def ellipsis_string(s, m):
         r += c
     return r + '...', l + 3
 
-def size_to_str(size_func):
-    try:
-        size = size_func()
-    except ZeroDivisionError:
+def size_to_str(size):
+    if size < 0:
         return 'NaN'
     unit = 'B'
     while True:
@@ -75,10 +73,8 @@ def size_to_str(size_func):
         return f'{size:.1f}{unit}'
     return f'{size:.2f}{unit}'
 
-def time_to_str(time_func):
-    try:
-        seconds = time_func()
-    except ZeroDivisionError:
+def time_to_str(seconds):
+    if seconds < 0:
         return 'NaN'
     result = ''
     if seconds >= 3600:
@@ -90,6 +86,8 @@ def time_to_str(time_func):
     result += str(second) if second >= 10 else ('0' + str(second))
     return result
 
+SPEED_ARRAY_SIZE = 10
+
 class TextProgressBar(TrzszCallback):
     def __init__(self, loop, session, tmux_pane_width=None):
         self.num = 0
@@ -100,6 +98,10 @@ class TextProgressBar(TrzszCallback):
         self.start_time = 0
         self.update_time = 0
         self.first_write = True
+        self.speed_cnt = 0
+        self.speed_idx = 0
+        self.time_array = [0] * SPEED_ARRAY_SIZE
+        self.step_array = [0] * SPEED_ARRAY_SIZE
         self.loop = loop
         self.session = session
         self.tmux_pane_width = tmux_pane_width or -1
@@ -112,6 +114,10 @@ class TextProgressBar(TrzszCallback):
         self.name = name
         self.idx += 1
         self.start_time = time.time()
+        self.time_array[0] = self.start_time
+        self.step_array[0] = 0
+        self.speed_cnt = 1
+        self.speed_idx = 1
 
     def on_size(self, size):
         self.size = size
@@ -137,10 +143,11 @@ class TextProgressBar(TrzszCallback):
         if self.size == 0:
             return
         percentage = str(round(self.step * 100 / self.size)) + '%'
-        total = size_to_str(lambda: self.step)
-        speed = size_to_str(lambda: (self.step / (now - self.start_time))) + '/s'
-        eta = time_to_str(lambda: (self.size - self.step) * (now - self.start_time) / self.step) + ' ETA'
-        progress_text = self._progress_text(percentage, total, speed, eta)
+        total = size_to_str(self.step)
+        speed = self._get_speed(now)
+        speed_str = size_to_str(speed) + '/s'
+        eta = time_to_str(round((self.size - self.step) / speed)) + ' ETA'
+        progress_text = self._progress_text(percentage, total, speed_str, eta)
 
         if self.first_write:
             self.first_write = False
@@ -150,6 +157,25 @@ class TextProgressBar(TrzszCallback):
             self._inject_to_iterm2(f'\x1b[{self.columns}D{progress_text}')
         else:
             self._inject_to_iterm2(f'\r{progress_text}')
+
+    def _get_speed(self, now):
+        try:
+            if self.speed_cnt <= SPEED_ARRAY_SIZE:
+                self.speed_cnt += 1
+                speed = (self.step - self.step_array[0]) / (now - self.time_array[0])
+            else:
+                speed = (self.step - self.step_array[self.speed_idx]) / (now - self.time_array[self.speed_idx])
+        except ZeroDivisionError:
+            speed = -1
+
+        self.time_array[self.speed_idx] = now
+        self.step_array[self.speed_idx] = self.step
+
+        self.speed_idx += 1
+        if self.speed_idx >= SPEED_ARRAY_SIZE:
+            self.speed_idx %= SPEED_ARRAY_SIZE
+
+        return speed
 
     def _progress_text(self, percentage, total, speed, eta):
         bar_min_len = 24
