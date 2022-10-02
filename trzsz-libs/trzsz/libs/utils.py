@@ -47,10 +47,11 @@ tmux_pane_width = -1
 protocol_newline = '\n'
 transfer_config = {}
 is_windows = platform.system() == 'Windows'
+remote_is_windows = False
 
 if is_windows:
     # pylint: disable=unused-import
-    from trzsz.libs.wins import set_stdin_raw, reset_stdin_tty
+    from trzsz.libs.wins import set_stdin_raw, reset_stdin_tty, enable_virtual_terminal, setup_console_output
 else:
     import tty
     import termios
@@ -228,29 +229,51 @@ def is_trzsz_letter(b):
 
 def read_line_on_windows():
     s = []
+    last_byte = '\x1b'
     skip_vt100 = False
+    has_new_line = False
+    may_duplicate = False
+    has_cursor_home = False
+    pre_has_cursor_home = False
     while True:
         c = sys.stdin.read(1)
-        if c == '!':
+        if c == '!' and len(s) > 0 and not skip_vt100:
             break
         if c == '\x03':
             raise TrzszError('Interrupted', trace=False)
+        if c == '\n':
+            has_new_line = True
         if skip_vt100:
             if is_vt100_end(c):
                 skip_vt100 = False
+                # moving the cursor may result in duplicate characters
+                if c == 'H' and '0' <= last_byte <= '9':
+                    may_duplicate = True
+            if last_byte == '[' and c == 'H':
+                has_cursor_home = True
+            last_byte = c
         elif c == '\x1b':
             skip_vt100 = True
+            last_byte = c
         elif is_trzsz_letter(c):
+            if may_duplicate:
+                may_duplicate = False
+                # skip the duplicate characters, e.g., the "8" in "8\r\n\x1b[25;119H8".
+                if has_new_line and len(s) > 0 and (c == s[-1] or pre_has_cursor_home):
+                    s[-1] = c
+                    continue
             s.append(c)
+            pre_has_cursor_home = has_cursor_home
+            has_cursor_home = False
+            has_new_line = False
     return ''.join(s)
 
 def recv_line(expect_typ, may_has_junk=False):
-    if is_windows:
+    if is_windows or remote_is_windows:
         line = read_line_on_windows()
-        if tmux_output_junk or may_has_junk:
-            idx = line.rfind('#' + expect_typ + ':')
-            if idx >= 0:
-                line = line[idx:]
+        idx = line.rfind('#' + expect_typ + ':')
+        if idx >= 0:
+            line = line[idx:]
         return line
     line = read_line()
     if tmux_output_junk or may_has_junk:
@@ -371,10 +394,13 @@ def recv_json(typ, may_has_junk=False):
     except ValueError as e:
         raise TrzszError(dic, str(e))
 
-def send_action(confirm, version, remote_is_windows):
+def send_action(confirm, version, is_windows):
     action = {'lang': 'py', 'confirm': confirm, 'version': version, 'support_dir': True}
-    if remote_is_windows:
-        global protocol_newline
+    if is_windows:
+        action['binary'] = False
+        action['newline'] = '!\n'
+        global protocol_newline, remote_is_windows
+        remote_is_windows = True
         protocol_newline = '!\n'
     send_json('ACT', action)
 
@@ -440,9 +466,13 @@ def recv_exit():
 def server_exit(msg):
     clean_input(0.5)
     reset_stdin_tty()
-    sys.stdout.write('\x1b8\x1b[0J')
+    if is_windows:
+        msg = msg.replace('\n', '\r\n')
+        sys.stdout.write('\x1b[H\x1b[2J\x1b[?1049l')
+    else:
+        sys.stdout.write('\x1b8\x1b[0J')
     sys.stdout.write(msg)
-    sys.stdout.write('\n')
+    sys.stdout.write('\r\n')
 
 def client_error(ex):
     clean_input(clean_timeout)

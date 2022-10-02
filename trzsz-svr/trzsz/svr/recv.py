@@ -77,6 +77,8 @@ def main():
 
     unique_id = str(int(time.time() * 1000 % 10e10))
     if is_windows:
+        enable_virtual_terminal()
+        setup_console_output()
         unique_id += '10'
     elif tmux_mode == TMUX_NORMAL_MODE:
         sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < get_columns() < 40 else '\n\x1b[1A\x1b[0J')
@@ -85,7 +87,7 @@ def main():
         unique_id += '00'
 
     mode = 'D' if args.directory else 'R'
-    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:%s:%s:%s\n' % (mode, __version__, unique_id))
+    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:%s:%s:%s\r\n' % (mode, __version__, unique_id))
     sys.stdout.flush()
 
     try:
