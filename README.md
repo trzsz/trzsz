@@ -38,6 +38,16 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
   brew install trzsz
   ```
 
+* with Node.js
+  ```
+  sudo npm install -g trzsz
+  ```
+
+* or install trzsz written in Go
+
+  Check [https://github.com/trzsz/trzsz-go](https://github.com/trzsz/trzsz-go)
+
+
 &nbsp;&nbsp;Can be installed without `sudo`, just add the installation path ( e.g. `~/.local/bin` ) to the `PATH` environment.
 
 
@@ -77,7 +87,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
     -d, --directory    transfer directories and files
     -B N, --bufsize N  max buffer chunk size (1K<=N<=1G). (default: 10M)
     -t N, --timeout N  timeout ( N seconds ) for each buffer chunk.
-                       N <= 0 means never timeout. (default: 10)
+                       N <= 0 means never timeout. (default: 20)
   ```
 
 #### `tsz` download files from the remote server
@@ -99,7 +109,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
     -d, --directory    transfer directories and files
     -B N, --bufsize N  max buffer chunk size (1K<=N<=1G). (default: 10M)
     -t N, --timeout N  timeout ( N seconds ) for each buffer chunk.
-                       N <= 0 means never timeout. (default: 10)
+                       N <= 0 means never timeout. (default: 20)
   ```
 
 #### Trouble shooting

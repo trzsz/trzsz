@@ -611,6 +611,30 @@ def send_file_size(file, callback):
         callback.on_size(file_size)
     return file_size
 
+def send_file_data(file, size, binary, escape_chars, max_buf_size, callback):
+    step = 0
+    buf_size = 1024
+    m = hashlib.md5()
+    while step < size:
+        begin_time = time.time()
+        data = file.read(buf_size)
+        length = len(data)
+        send_data(data, binary, escape_chars)
+        m.update(data)
+        check_integer(length)
+        step += length
+        if callback:
+            callback.on_step(step)
+        chunk_time = time.time() - begin_time
+        if length == buf_size and chunk_time < 0.5 and buf_size < max_buf_size:
+            buf_size = min(buf_size * 2, max_buf_size)
+        elif chunk_time >= 2.0 and buf_size > 1024:
+            buf_size = 1024
+        global max_chunk_time
+        if chunk_time > max_chunk_time:
+            max_chunk_time = chunk_time
+    return m.digest()
+
 def send_file_md5(digest, callback):
     send_binary('MD5', digest)
     check_binary(digest)
@@ -625,7 +649,6 @@ def send_files(file_list, callback=None):
 
     send_file_num(len(file_list), callback)
 
-    buf_size = 1024
     remote_list = []
 
     for file in file_list:
@@ -637,29 +660,12 @@ def send_files(file_list, callback=None):
         if file['is_dir']:
             continue
 
-        file_size = send_file_size(file, callback)
+        size = send_file_size(file, callback)
 
-        step = 0
-        m = hashlib.md5()
         with open(file['abs_path'], 'rb') as f:
-            while step < file_size:
-                begin_time = time.time()
-                data = f.read(buf_size)
-                size = len(data)
-                send_data(data, binary, escape_chars)
-                m.update(data)
-                check_integer(size)
-                step += size
-                if callback:
-                    callback.on_step(step)
-                chunk_time = time.time() - begin_time
-                if size == buf_size and chunk_time < 0.5 and buf_size < max_buf_size:
-                    buf_size = min(buf_size * 2, max_buf_size)
-                global max_chunk_time
-                if chunk_time > max_chunk_time:
-                    max_chunk_time = chunk_time
+            md5 = send_file_data(f, size, binary, escape_chars, max_buf_size, callback)
 
-        send_file_md5(m.digest(), callback)
+        send_file_md5(md5, callback)
 
     return remote_list
 
@@ -754,6 +760,24 @@ def recv_file_size(callback):
         callback.on_size(file_size)
     return file_size
 
+def recv_file_data(file, size, binary, escape_chars, timeout, callback):
+    step = 0
+    m = hashlib.md5()
+    while step < size:
+        begin_time = time.time()
+        data = recv_data(binary, escape_chars, timeout)
+        file.write(data)
+        step += len(data)
+        if callback:
+            callback.on_step(step)
+        send_integer('SUCC', len(data))
+        m.update(data)
+        chunk_time = time.time() - begin_time
+        global max_chunk_time
+        if chunk_time > max_chunk_time:
+            max_chunk_time = chunk_time
+    return m.digest()
+
 def recv_file_md5(digest, callback):
     expect_digest = recv_binary('MD5')
     if digest != expect_digest:
@@ -783,24 +807,9 @@ def recv_files(dest_path, callback=None):
             continue
 
         with file:
-            file_size = recv_file_size(callback)
+            size = recv_file_size(callback)
+            md5 = recv_file_data(file, size, binary, escape_chars, timeout, callback)
 
-            step = 0
-            m = hashlib.md5()
-            while step < file_size:
-                begin_time = time.time()
-                data = recv_data(binary, escape_chars, timeout)
-                file.write(data)
-                step += len(data)
-                if callback:
-                    callback.on_step(step)
-                send_integer('SUCC', len(data))
-                m.update(data)
-                chunk_time = time.time() - begin_time
-                global max_chunk_time
-                if chunk_time > max_chunk_time:
-                    max_chunk_time = chunk_time
-
-        recv_file_md5(m.digest(), callback)
+        recv_file_md5(md5, callback)
 
     return local_list

@@ -46,9 +46,9 @@ def main():
     parser.add_argument('-t',
                         '--timeout',
                         type=int,
-                        default=10,
+                        default=20,
                         metavar='N',
-                        help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 10)')
+                        help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 20)')
     parser.add_argument('file', nargs='+', type=convert_to_unicode, help='file(s) to be sent')
     args = parser.parse_args()
 

@@ -56,7 +56,7 @@ jobs:
   test-python2:
     name: Install trzsz with Python2
     needs: build-and-publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Set up Python
         uses: actions/setup-python@v2
