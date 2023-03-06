@@ -59,6 +59,8 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 * [electerm](https://electerm.github.io/electerm/) -- upgrade to `1.19.0` or higher.
 
+* [ttyd](https://github.com/tsl0922/ttyd) -- upgrade to `1.7.3` or higher, and start with `-t enableTrzsz=true`.
+
 * [trzsz-go](https://github.com/trzsz/trzsz-go) -- supports all terminals that support a local shell.
 
 * [trzsz.js](https://github.com/trzsz/trzsz.js) -- making webshell in browser and electron terminal supports `trzsz`.
