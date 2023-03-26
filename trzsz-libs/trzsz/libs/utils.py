@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2022 Lonny Wong
+# Copyright (c) 2023 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -84,6 +84,7 @@ def encode_if_unicode(buf):
     return buf
 
 class TrzszError(Exception):
+
     def __init__(self, msg, typ=None, trace=True):
         msg = encode_if_unicode(msg)
         if typ in ('fail', 'FAIL', 'EXIT'):
@@ -121,6 +122,7 @@ class TrzszError(Exception):
         return str(ex)
 
 class TrzszCallback(object):
+
     def on_num(self, num):
         pass
 
@@ -137,6 +139,7 @@ class TrzszCallback(object):
         pass
 
 class BufferSizeParser(argparse.Action):
+
     def __init__(self, *args, **kwargs):
         self.min_size = kwargs['min_size']
         self.max_size = kwargs['max_size']
@@ -183,7 +186,8 @@ def clean_input(timeout):
         r, w, x = select.select([sys.stdin], [], [], timeout)
         if not r:
             break
-        os.read(sys.stdin.fileno(), 1024 * 1024)
+        if not os.read(sys.stdin.fileno(), 10240):
+            break
 
 def encode_buffer(buf):
     return base64.b64encode(zlib.compress(buf)).decode('utf8')
@@ -198,75 +202,110 @@ def send_line(typ, buf):
     tmux_real_stdout.write('#%s:%s%s' % (typ, buf, protocol_newline))
     tmux_real_stdout.flush()
 
+next_buffer = b''
+
+def read_buffer(size):
+    if next_buffer:
+        return next_buffer
+    buf = os.read(sys.stdin.fileno(), size)
+    if not buf:
+        raise TrzszError('EndOfStdin', trace=False)
+    return buf
+
 def read_line():
-    s = []
+    global next_buffer
+    buffer = []
     while True:
-        c = sys.stdin.read(1)
-        if c == '\n':
-            break
-        if c == '\x03':
+        buf = read_buffer(10240)
+        new_line_idx = buf.find(b'\n')
+        if new_line_idx >= 0:
+            next_buffer = buf[new_line_idx + 1:]  # +1 to ignroe the '\n'
+            buf = buf[:new_line_idx]
+        else:
+            next_buffer = b''
+        if buf.find(b'\x03') >= 0:  # `ctrl + c` to interrupt
             raise TrzszError('Interrupted', trace=False)
-        s.append(c)
-    return ''.join(s)
+        buffer.append(buf)
+        if new_line_idx >= 0:
+            return b''.join(buffer).decode(encoding='latin1', errors='surrogateescape')
+
+def read_binary(size):
+    global next_buffer
+    length = 0
+    buffer = []
+    while length < size:
+        buf = read_buffer(size - length)
+        next_buffer = b''
+        length += len(buf)
+        buffer.append(buf)
+    return b''.join(buffer)
 
 def is_vt100_end(b):
-    if 'a' <= b <= 'z':
+    if b'a' <= b <= b'z':
         return True
-    if 'A' <= b <= 'Z':
+    if b'A' <= b <= b'Z':
         return True
     return False
 
 def is_trzsz_letter(b):
-    if 'a' <= b <= 'z':
+    if b'a' <= b <= b'z':
         return True
-    if 'A' <= b <= 'Z':
+    if b'A' <= b <= b'Z':
         return True
-    if '0' <= b <= '9':
+    if b'0' <= b <= b'9':
         return True
-    if b in '#:+/=':
+    if b in b'#:+/=':
         return True
     return False
 
 def read_line_on_windows():
-    s = []
-    last_byte = '\x1b'
+    global next_buffer
+    buffer = []
+    last_byte = b'\x1b'
     skip_vt100 = False
     has_new_line = False
     may_duplicate = False
     has_cursor_home = False
     pre_has_cursor_home = False
     while True:
-        c = sys.stdin.read(1)
-        if c == '!' and len(s) > 0 and not skip_vt100:
-            break
-        if c == '\x03':
-            raise TrzszError('Interrupted', trace=False)
-        if c == '\n':
-            has_new_line = True
-        if skip_vt100:
-            if is_vt100_end(c):
-                skip_vt100 = False
-                # moving the cursor may result in duplicate characters
-                if c == 'H' and '0' <= last_byte <= '9':
-                    may_duplicate = True
-            if last_byte == '[' and c == 'H':
-                has_cursor_home = True
-            last_byte = c
-        elif c == '\x1b':
-            skip_vt100 = True
-            last_byte = c
-        elif is_trzsz_letter(c):
-            if may_duplicate:
-                may_duplicate = False
-                # skip the duplicate characters, e.g., the "8" in "8\r\n\x1b[25;119H8".
-                if has_new_line and len(s) > 0 and (c == s[-1] or pre_has_cursor_home):
-                    s[-1] = c
-                    continue
-            s.append(c)
-            pre_has_cursor_home = has_cursor_home
-            has_cursor_home = False
-            has_new_line = False
-    return ''.join(s)
+        buf = read_buffer(10240)
+        new_line_idx = buf.find(b'!')
+        if new_line_idx >= 0:
+            next_buffer = buf[new_line_idx + 1:]  # +1 to ignroe the '\n'
+            buf = buf[:new_line_idx]
+        else:
+            next_buffer = b''
+        for i in range(len(buf)):
+            c = buf[i:i + 1]
+            if c == b'\x03':  # `ctrl + c` to interrupt
+                raise TrzszError('Interrupted', trace=False)
+            if c == b'\n':
+                has_new_line = True
+            if skip_vt100:
+                if is_vt100_end(c):
+                    skip_vt100 = False
+                    # moving the cursor may result in duplicate characters
+                    if c == b'H' and b'0' <= last_byte <= b'9':
+                        may_duplicate = True
+                if last_byte == b'[' and c == b'H':
+                    has_cursor_home = True
+                last_byte = c
+            elif c == b'\x1b':
+                skip_vt100 = True
+                last_byte = c
+            elif is_trzsz_letter(c):
+                if may_duplicate:
+                    may_duplicate = False
+                    # skip the duplicate characters, e.g., the "8" in "8\r\n\x1b[25;119H8".
+                    if has_new_line and len(buffer) > 0 and (c == buffer[-1] or pre_has_cursor_home):
+                        buffer[-1] = c
+                        continue
+                buffer.append(c)
+                pre_has_cursor_home = has_cursor_home
+                has_cursor_home = False
+                has_new_line = False
+        if new_line_idx >= 0 and len(buffer) > 0 and not skip_vt100:
+            return b''.join(buffer).decode(encoding='latin1', errors='surrogateescape')
 
 def recv_line(expect_typ, may_has_junk=False):
     if is_windows or remote_is_windows:
@@ -378,7 +417,7 @@ def recv_data(binary, escape_chars, timeout):
         if not binary:
             return recv_binary('DATA')
         size = recv_integer('DATA')
-        data = sys.stdin.read(size).encode(encoding='latin1', errors='surrogateescape')
+        data = read_binary(size)
         return unescape_data(data, escape_chars)
     finally:
         if timeout > 0 and not is_windows:
@@ -575,12 +614,11 @@ def get_columns():
         return 0
 
 def reconfigure_stdin():
+    if sys.version_info >= (3, ):
+        return
     try:
-        if sys.version_info >= (3, 7):
-            sys.stdin.reconfigure(encoding='latin1', errors='surrogateescape')
-        elif sys.version_info < (3, 0):
-            reload(sys)  # pylint:disable=undefined-variable
-            sys.setdefaultencoding('latin1')
+        reload(sys)  # pylint:disable=undefined-variable
+        sys.setdefaultencoding('latin1')
     except AttributeError:
         pass
 

@@ -18,6 +18,18 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 `tmux` is not going to support rz / sz ( [906](https://github.com/tmux/tmux/issues/906), [1439](https://github.com/tmux/tmux/issues/1439) ), and creating a new tools is much easier than patching `tmux`.
 
 
+## Advantage
+
+* Support **tmux**, including tmux normal mode, and tmux command mode integrated with iTerm2.
+* Support **transfer directories**, `trz -d` to upload directories, `tsz -d xxx` to download xxx directories.
+* Support **Windows server**, not only can run on Windows client, but also can run on Windows ssh server.
+* Support **native terminal**, does not require terminal to support, just use `trzsz ssh x.x.x.x` to login.
+* Support **web terminal**, transfer files and directories between local and remote servers over the web.
+* Support **drag to upload**, drag and drop files and directories to the terminal to upload to the remote server.
+* Support **progress bar**, shows the current transferring file name, progress, size, speed, remaining time, etc.
+* Better **interactive experience**, shows the transfer results or errors friendly, `ctrl + c` to stop gracefully.
+
+
 ## Installation
 
 ### On the server
@@ -59,7 +71,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 * [electerm](https://electerm.github.io/electerm/) -- upgrade to `1.19.0` or higher.
 
-* [ttyd](https://github.com/tsl0922/ttyd) -- upgrade to `1.7.3` or higher, and start with `-t enableTrzsz=true`.
+* [ttyd](https://github.com/tsl0922/ttyd) -- upgrade to `1.7.3` or higher, and start with `-t enableTrzsz=true`, use `https` unless localhost.
 
 * [trzsz-go](https://github.com/trzsz/trzsz-go) -- supports all terminals that support a local shell.
 
@@ -125,10 +137,6 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 * If `trz -b` binary upload fails, and login to server using `telnet` or `docker exec`.
   * Try to escape all known control characters, e.g., `trz -eb`.
-
-* If `trz -b` binary upload fails, and the server is using `Python3 < 3.7`.
-  * `Python3 < 3.7` supports base64 mode, just don't use `trz -b`, use `trz` instead.
-  * If you want to use `trz -b` binary upload, upgrade Python3 to 3.7 or higher, or use Python2.
 
 * If `trz -b` or `tsz -b` binary transfer fails, and login to server using `expect`.
   * Try to `export LC_CTYPE=C` before the `expect` script. e.g.:

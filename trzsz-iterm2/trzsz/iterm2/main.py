@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2022 Lonny Wong
+# Copyright (c) 2023 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -257,8 +257,12 @@ def read_server_output(timeout):
     while True:
         r, w, x = select.select([sys.stdin], [], [], timeout)
         if not r:
-            return b''.join(output)
-        output.append(os.read(sys.stdin.fileno(), 1))
+            break
+        out = os.read(sys.stdin.fileno(), 10240)
+        if not out:
+            break
+        output.append(out)
+    return b''.join(output)
 
 trzsz_trigger_regex = r':TRZSZ:TRANSFER:([SRD]):(\d+\.\d+\.\d+)(:\d+)?'
 
