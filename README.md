@@ -127,9 +127,13 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
   ```
 
 #### Trouble shooting
-* If `tmux` is not running on the remote server, but on the local computer, or on a middle server.
+* If `tmux` is running on the local computer.
   * Option 1: Use `tmux -CC` integration with iTerm2, please refer to [iTerm2 tmux Integration](https://trzsz.github.io/tmuxcc).
-  * Option 2: Install [trzsz-go](https://github.com/trzsz/trzsz-go) on the local computer, and `alias ssh="trzsz ssh"` for convenience.
+  * Option 2: Install [trzsz-go](https://github.com/trzsz/trzsz-go) on the local computer, use `trzsz ssh` to login after `tmux`.
+
+* If `tmux` is running on the jump server.
+  * Option 1: Use `tmux -CC` integration with iTerm2, please refer to [iTerm2 tmux Integration](https://trzsz.github.io/tmuxcc).
+  * Option 2: Install [trzsz-go](https://github.com/trzsz/trzsz-go) on the jump server, use `trzsz -r ssh` to login after `tmux`.
 
 * If an error occurs, and `trzsz` is hanging up.
   * Press `control + c` to stop `trz` or `tsz` process on the server.
@@ -170,4 +174,4 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 ## Contact
 
-Feel free to email me <lonnywong@qq.com>.
+Feel free to email me <lonnywong@qq.com>. Welcome to join the QQ group: 318578930.
