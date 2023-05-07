@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2022 Lonny Wong
+# Copyright (c) 2023 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -47,8 +47,6 @@ def ellipsis_string(s, m):
     return ''.join(r), l + 3
 
 def size_to_str(size):
-    if size < 0:
-        return 'NaN'
     unit = 'B'
     while True:
         if size < 1024:
@@ -69,14 +67,12 @@ def size_to_str(size):
         unit = 'TB'
         break
     if size >= 100:
-        return f'{size:.0f}{unit}'
+        return f'{size:.0f} {unit}'
     if size >= 10:
-        return f'{size:.1f}{unit}'
-    return f'{size:.2f}{unit}'
+        return f'{size:.1f} {unit}'
+    return f'{size:.2f} {unit}'
 
 def time_to_str(seconds):
-    if seconds < 0:
-        return 'NaN'
     result = ''
     if seconds >= 3600:
         result += str(int(seconds / 3600)) + ':'
@@ -87,9 +83,10 @@ def time_to_str(seconds):
     result += str(second) if second >= 10 else ('0' + str(second))
     return result
 
-SPEED_ARRAY_SIZE = 10
+SPEED_ARRAY_SIZE = 30
 
 class TextProgressBar(TrzszCallback):
+
     def __init__(self, loop, session, tmux_pane_width=None):
         self.num = 0
         self.idx = 0
@@ -105,7 +102,7 @@ class TextProgressBar(TrzszCallback):
         self.step_array = [0] * SPEED_ARRAY_SIZE
         self.loop = loop
         self.session = session
-        self.tmux_pane_width = tmux_pane_width or -1
+        self.tmux_pane_width = tmux_pane_width or 0
         self.columns = self.tmux_pane_width if self.tmux_pane_width > 0 else session.grid_size.width
 
     def on_num(self, num):
@@ -119,11 +116,14 @@ class TextProgressBar(TrzszCallback):
         self.step_array[0] = 0
         self.speed_cnt = 1
         self.speed_idx = 1
+        self.step = -1
 
     def on_size(self, size):
         self.size = size
 
     def on_step(self, step):
+        if step <= self.step:
+            return
         self.step = step
         self._show_progress()
 
@@ -137,18 +137,21 @@ class TextProgressBar(TrzszCallback):
 
     def _show_progress(self):
         now = time.time()
-        if now - self.update_time < 0.5:
+        if now - self.update_time < 0.2:
             return
         self.update_time = now
 
-        if self.size == 0:
-            return
-        percentage = str(round(self.step * 100 / self.size)) + '%'
+        percentage = "100%"
+        if self.size != 0:
+            percentage = str(round(self.step * 100 / self.size)) + '%'
         total = size_to_str(self.step)
         speed = self._get_speed(now)
-        speed_str = size_to_str(speed) + '/s'
-        eta = time_to_str(round((self.size - self.step) / speed)) + ' ETA'
-        progress_text = self._progress_text(percentage, total, speed_str, eta)
+        speed_str = '--- B/s'
+        eta_str = '--- ETA'
+        if speed > 0:
+            speed_str = size_to_str(speed) + '/s'
+            eta_str = time_to_str(round((self.size - self.step) / speed)) + ' ETA'
+        progress_text = self._progress_text(percentage, total, speed_str, eta_str)
 
         if self.first_write:
             self.first_write = False
@@ -223,7 +226,9 @@ class TextProgressBar(TrzszCallback):
         if bar_len < 12:
             return ''
         total = bar_len - 2
-        complete = round(total * self.step / self.size)
+        complete = total
+        if self.size != 0:
+            complete = round(total * self.step / self.size)
         return '[\u001b[36m' + '\u2588' * complete + '\u2591' * (total - complete) + '\u001b[0m]'
 
     def _inject_to_iterm2(self, data):

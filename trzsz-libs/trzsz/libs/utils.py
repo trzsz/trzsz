@@ -651,6 +651,8 @@ def send_file_size(file, callback):
 
 def send_file_data(file, size, binary, escape_chars, max_buf_size, callback):
     step = 0
+    if callback:
+        callback.on_step(step)
     buf_size = 1024
     m = hashlib.md5()
     while step < size:
@@ -800,6 +802,8 @@ def recv_file_size(callback):
 
 def recv_file_data(file, size, binary, escape_chars, timeout, callback):
     step = 0
+    if callback:
+        callback.on_step(step)
     m = hashlib.md5()
     while step < size:
         begin_time = time.time()
