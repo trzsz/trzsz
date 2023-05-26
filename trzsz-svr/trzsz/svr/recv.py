@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2022 Lonny Wong
+# Copyright (c) 2023 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -75,19 +75,17 @@ def main():
         sys.stdout.write('Binary upload on Windows is not supported, auto switch to base64 mode.\n')
         args.binary = False
 
-    unique_id = str(int(time.time() * 1000 % 10e10))
+    unique_id = int(time.time() * 1000 % 10e10) * 100
     if is_windows:
         enable_virtual_terminal()
         setup_console_output()
-        unique_id += '10'
+        unique_id += 10
     elif tmux_mode == TMUX_NORMAL_MODE:
         sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < get_columns() < 40 else '\n\x1b[1A\x1b[0J')
-        unique_id += '20'
-    else:
-        unique_id += '00'
+        unique_id += 20
 
     mode = 'D' if args.directory else 'R'
-    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:%s:%s:%s\r\n' % (mode, __version__, unique_id))
+    sys.stdout.write('\x1b7\x07::TRZSZ:TRANSFER:%s:%s:%013d\r\n' % (mode, __version__, unique_id))
     sys.stdout.flush()
 
     try:

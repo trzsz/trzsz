@@ -294,7 +294,7 @@ def drag_files_to_upload(file_paths, loop, session):
             idx = output.find(b'\n')
             if idx > 0 and output[:idx].rstrip() in (b'trz', b'trz -d'):
                 output = b'\r\n' + output[idx + 1:]
-            trigger_match = re.search(trzsz_trigger_regex, output.decode('ascii'))
+            trigger_match = re.search(trzsz_trigger_regex, output.decode('latin1'))
             if trigger_match:
                 loop.create_task(session.async_inject(output.replace(b'TRANSFER', b'DRAGFILE')))
                 global upload_file_list
