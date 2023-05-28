@@ -27,28 +27,7 @@ from trzsz.libs import utils
 from trzsz.svr.__version__ import __version__
 
 
-def send_files(args, file_list):
-    action = utils.recv_action()
-
-    if not action.get('confirm', False):
-        utils.server_exit('Cancelled')
-        return
-
-    # check if the client doesn't support binary mode
-    if args.binary and action.get('binary') is False:
-        args.binary = False
-    # check if the client doesn't support transfer directory
-    if args.directory and action.get('support_dir') is not True:
-        raise utils.TrzszError("The client doesn't support transfer directory", trace=False)
-
-    utils.send_config(args, action, [])
-
-    utils.send_files(file_list, None)
-
-    utils.server_exit(utils.recv_exit())
-
-
-def main():
+def parse_args(args):
     parser = argparse.ArgumentParser(description='Send file(s), similar to sz and compatible with tmux.',
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) py ' + __version__)
@@ -72,7 +51,32 @@ def main():
                         metavar='N',
                         help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 20)')
     parser.add_argument('file', nargs='+', type=utils.convert_to_unicode, help='file(s) to be sent')
-    args = parser.parse_args()
+    return parser.parse_args(args)
+
+
+def send_files(args, file_list):
+    action = utils.recv_action()
+
+    if not action.get('confirm', False):
+        utils.server_exit('Cancelled')
+        return
+
+    # check if the client doesn't support binary mode
+    if args.binary and action.get('binary') is False:
+        args.binary = False
+    # check if the client doesn't support transfer directory
+    if args.directory and action.get('support_dir') is not True:
+        raise utils.TrzszError("The client doesn't support transfer directory", trace=False)
+
+    utils.send_config(args, action, [])
+
+    utils.send_files(file_list, None)
+
+    utils.server_exit(utils.recv_exit())
+
+
+def main():
+    args = parse_args(sys.argv[1:])
 
     try:
         file_list = utils.check_paths_readable(args.file, args.directory)

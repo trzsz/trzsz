@@ -28,29 +28,7 @@ from trzsz.libs import utils
 from trzsz.svr.__version__ import __version__
 
 
-def recv_files(args, dest_path):
-    action = utils.recv_action()
-
-    if not action.get('confirm', False):
-        utils.server_exit('Cancelled')
-        return
-
-    # check if the client doesn't support binary mode
-    if args.binary and action.get('binary') is False:
-        args.binary = False
-    # check if the client doesn't support transfer directory
-    if args.directory and action.get('support_dir') is not True:
-        raise utils.TrzszError("The client doesn't support transfer directory", trace=False)
-
-    utils.send_config(args, action, utils.get_escape_chars(args.escape))
-
-    local_list = utils.recv_files(dest_path, None)
-
-    _ = utils.recv_exit()
-    utils.server_exit('Received %s to %s' % (', '.join(local_list), dest_path))
-
-
-def main():
+def parse_args(args):
     parser = argparse.ArgumentParser(description='Receive file(s), similar to rz and compatible with tmux.',
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) py ' + __version__)
@@ -74,7 +52,33 @@ def main():
                         metavar='N',
                         help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 20)')
     parser.add_argument('path', nargs='?', default='.', help='path to save file(s). (default: current directory)')
-    args = parser.parse_args()
+    return parser.parse_args(args)
+
+
+def recv_files(args, dest_path):
+    action = utils.recv_action()
+
+    if not action.get('confirm', False):
+        utils.server_exit('Cancelled')
+        return
+
+    # check if the client doesn't support binary mode
+    if args.binary and action.get('binary') is False:
+        args.binary = False
+    # check if the client doesn't support transfer directory
+    if args.directory and action.get('support_dir') is not True:
+        raise utils.TrzszError("The client doesn't support transfer directory", trace=False)
+
+    utils.send_config(args, action, utils.get_escape_chars(args.escape))
+
+    local_list = utils.recv_files(dest_path, None)
+
+    _ = utils.recv_exit()
+    utils.server_exit('Received %s to %s' % (', '.join(local_list), dest_path))
+
+
+def main():
+    args = parse_args(sys.argv[1:])
     dest_path = utils.convert_to_unicode(os.path.abspath(args.path))
 
     try:

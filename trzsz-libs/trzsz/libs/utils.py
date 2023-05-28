@@ -501,7 +501,7 @@ def recv_json(typ, may_has_junk=False):
 
 
 def send_action(confirm, version, remote_is_windows):
-    action = {'lang': 'py', 'confirm': confirm, 'version': version, 'support_dir': True, 'protocol': 0}
+    action = {'lang': 'py', 'confirm': confirm, 'version': version, 'support_dir': True, 'protocol': 1}
     if IS_RUNNING_ON_WINDOWS or remote_is_windows:
         action['newline'] = '!\n'
         action['binary'] = False
