@@ -37,51 +37,93 @@ import platform
 import traceback
 import subprocess
 
-NO_TMUX = 0
+NO_TMUX_MODE = 0
 TMUX_NORMAL_MODE = 1
 TMUX_CONTROL_MODE = 2
 
-tmux_output_junk = False
-tmux_real_stdout = sys.stdout
-tmux_pane_width = -1
-protocol_newline = '\n'
-transfer_config = {}
-is_windows = platform.system() == 'Windows'
-remote_is_windows = False
+IS_RUNNING_ON_WINDOWS = platform.system() == 'Windows'
 
-if is_windows:
-    # pylint: disable=unused-import
-    from trzsz.libs.wins import set_stdin_raw, reset_stdin_tty, enable_virtual_terminal, setup_console_output
+
+class GlobalVariables:
+
+    def __init__(self):
+        self.stdin_old_tty = None
+        self.tmux_mode = NO_TMUX_MODE
+        self.trzsz_writer = sys.stdout
+        self.windows_protocol = False
+        self.next_read_buffer = b''
+        self.clean_timeout = 0.1
+        self.max_chunk_time = 0
+
+
+GLOBAL = GlobalVariables()
+
+
+class TransferConfig:
+
+    def __init__(self):
+        self.quiet = False
+        self.binary = False
+        self.directory = False
+        self.overwrite = False
+        self.timeout = 20
+        self.newline = '\n'
+        self.protocol = 0
+        self.max_buf_size = 10 * 1024 * 1024
+        self.escape_chars = []
+        self.tmux_pane_width = 0
+        self.tmux_output_junk = False
+
+    def loads(self, config):
+        self.quiet = config.get('quiet', self.quiet)
+        self.binary = config.get('binary', self.binary)
+        self.directory = config.get('directory', self.directory)
+        self.overwrite = config.get('overwrite', self.overwrite)
+        self.timeout = config.get('timeout', self.timeout)
+        self.newline = config.get('newline', self.newline)
+        self.protocol = config.get('protocol', self.protocol)
+        self.max_buf_size = config.get('bufsize', self.max_buf_size)
+        self.escape_chars = config.get('escape_chars', self.escape_chars)
+        self.tmux_pane_width = config.get('tmux_pane_width', self.tmux_pane_width)
+        self.tmux_output_junk = config.get('tmux_output_junk', self.tmux_output_junk)
+
+
+CONFIG = TransferConfig()
+
+if IS_RUNNING_ON_WINDOWS:
+    # pylint: disable-next=unused-import
+    from trzsz.libs.wins import set_stdin_raw, reset_stdin_tty, enable_virtual_terminal, setup_console_output  # NOQA
 else:
     import tty
     import termios
-    stdin_old_tty = None
 
     def set_stdin_raw():
-        global stdin_old_tty
-        stdin_old_tty = termios.tcgetattr(sys.stdin.fileno())
+        GLOBAL.stdin_old_tty = termios.tcgetattr(sys.stdin.fileno())
         tty.setraw(sys.stdin.fileno(), termios.TCSANOW)
 
     def reset_stdin_tty():
-        global stdin_old_tty
-        if stdin_old_tty:
-            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, stdin_old_tty)
-            stdin_old_tty = None
+        if GLOBAL.stdin_old_tty:
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, GLOBAL.stdin_old_tty)
+            GLOBAL.stdin_old_tty = None
+
 
 atexit.register(reset_stdin_tty)
 
 if sys.version_info >= (3, ):
-    unicode = str
+    unicode = str  # pylint: disable=invalid-name
+
 
 def convert_to_unicode(buf):
     if sys.version_info < (3, ) and not isinstance(buf, unicode):
         return unicode(buf, 'utf8')
     return buf
 
+
 def encode_if_unicode(buf):
     if sys.version_info < (3, ) and isinstance(buf, unicode):
         return buf.encode('utf8')
     return buf
+
 
 class TrzszError(Exception):
 
@@ -90,8 +132,8 @@ class TrzszError(Exception):
         if typ in ('fail', 'FAIL', 'EXIT'):
             try:
                 msg = encode_if_unicode(decode_buffer(msg).decode('utf8'))
-            except Exception as e:
-                msg = 'decode [%s] error: %s' % (msg, str(e))
+            except Exception as ex:
+                msg = 'decode [%s] error: %s' % (msg, str(ex))
         elif typ:
             msg = '[TrzszError] %s: %s' % (typ, msg)
         Exception.__init__(self, msg)
@@ -121,7 +163,8 @@ class TrzszError(Exception):
             return traceback.format_exc().strip()
         return str(ex)
 
-class TrzszCallback(object):
+
+class TrzszCallback:
 
     def on_num(self, num):
         pass
@@ -137,6 +180,7 @@ class TrzszCallback(object):
 
     def on_done(self):
         pass
+
 
 class BufferSizeParser(argparse.Action):
 
@@ -166,7 +210,7 @@ class BufferSizeParser(argparse.Action):
             return size_value * 1024 * 1024
         if unit_suffix in ('g', 'gb'):
             return size_value * 1024 * 1024 * 1024
-        return None
+        raise argparse.ArgumentError(self, 'invalid size ' + value)
 
     def __call__(self, parser, namespace, values, option_string=None):
         buf_size = self.parse_size(values)
@@ -176,90 +220,94 @@ class BufferSizeParser(argparse.Action):
             raise argparse.ArgumentError(self, 'greater than %s' % self.max_size)
         setattr(namespace, self.dest, buf_size)
 
-clean_timeout = 0.1
 
 def clean_input(timeout):
-    if is_windows:
+    if IS_RUNNING_ON_WINDOWS:
         time.sleep(timeout)
         return
     while True:
-        r, w, x = select.select([sys.stdin], [], [], timeout)
-        if not r:
+        rlist, _wlist, _xlist = select.select([sys.stdin], [], [], timeout)
+        if not rlist:
             break
         if not os.read(sys.stdin.fileno(), 10240):
             break
 
+
 def encode_buffer(buf):
     return base64.b64encode(zlib.compress(buf)).decode('utf8')
+
 
 def decode_buffer(buf):
     try:
         return zlib.decompress(base64.b64decode(buf))
-    except (TypeError, zlib.error) as e:
-        raise TrzszError(buf, str(e))
+    except (TypeError, zlib.error) as ex:
+        raise TrzszError(buf, str(ex))
+
 
 def send_line(typ, buf):
-    tmux_real_stdout.write('#%s:%s%s' % (typ, buf, protocol_newline))
-    tmux_real_stdout.flush()
+    GLOBAL.trzsz_writer.write('#%s:%s%s' % (typ, buf, CONFIG.newline))
+    GLOBAL.trzsz_writer.flush()
 
-next_buffer = b''
 
 def read_buffer(size):
-    if next_buffer:
-        return next_buffer
+    if GLOBAL.next_read_buffer:
+        return GLOBAL.next_read_buffer
     buf = os.read(sys.stdin.fileno(), size)
     if not buf:
         raise TrzszError('EndOfStdin', trace=False)
     return buf
 
+
 def read_line():
-    global next_buffer
     buffer = []
     while True:
         buf = read_buffer(10240)
         new_line_idx = buf.find(b'\n')
         if new_line_idx >= 0:
-            next_buffer = buf[new_line_idx + 1:]  # +1 to ignroe the '\n'
+            # +1 to ignroe the '\n'
+            GLOBAL.next_read_buffer = buf[new_line_idx + 1:]
             buf = buf[:new_line_idx]
         else:
-            next_buffer = b''
+            GLOBAL.next_read_buffer = b''
         if buf.find(b'\x03') >= 0:  # `ctrl + c` to interrupt
             raise TrzszError('Interrupted', trace=False)
         buffer.append(buf)
         if new_line_idx >= 0:
             return b''.join(buffer).decode(encoding='latin1', errors='surrogateescape')
 
+
 def read_binary(size):
-    global next_buffer
     length = 0
     buffer = []
     while length < size:
         buf = read_buffer(size - length)
-        next_buffer = b''
+        GLOBAL.next_read_buffer = b''
         length += len(buf)
         buffer.append(buf)
     return b''.join(buffer)
 
-def is_vt100_end(b):
-    if b'a' <= b <= b'z':
+
+def is_vt100_end(char):
+    if b'a' <= char <= b'z':
         return True
-    if b'A' <= b <= b'Z':
+    if b'A' <= char <= b'Z':
         return True
     return False
 
-def is_trzsz_letter(b):
-    if b'a' <= b <= b'z':
+
+def is_trzsz_letter(char):
+    if b'a' <= char <= b'z':
         return True
-    if b'A' <= b <= b'Z':
+    if b'A' <= char <= b'Z':
         return True
-    if b'0' <= b <= b'9':
+    if b'0' <= char <= b'9':
         return True
-    if b in b'#:+/=':
+    if char in b'#:+/=':
         return True
     return False
 
-def read_line_on_windows():
-    global next_buffer
+
+def read_line_on_windows():  # pylint: disable=too-many-branches
     buffer = []
     last_byte = b'\x1b'
     skip_vt100 = False
@@ -271,51 +319,53 @@ def read_line_on_windows():
         buf = read_buffer(10240)
         new_line_idx = buf.find(b'!')
         if new_line_idx >= 0:
-            next_buffer = buf[new_line_idx + 1:]  # +1 to ignroe the '\n'
+            # +1 to ignroe the '\n'
+            GLOBAL.next_read_buffer = buf[new_line_idx + 1:]
             buf = buf[:new_line_idx]
         else:
-            next_buffer = b''
+            GLOBAL.next_read_buffer = b''
         for i in range(len(buf)):
-            c = buf[i:i + 1]
-            if c == b'\x03':  # `ctrl + c` to interrupt
+            char = buf[i:i + 1]
+            if char == b'\x03':  # `ctrl + c` to interrupt
                 raise TrzszError('Interrupted', trace=False)
-            if c == b'\n':
+            if char == b'\n':
                 has_new_line = True
             if skip_vt100:
-                if is_vt100_end(c):
+                if is_vt100_end(char):
                     skip_vt100 = False
                     # moving the cursor may result in duplicate characters
-                    if c == b'H' and b'0' <= last_byte <= b'9':
+                    if char == b'H' and b'0' <= last_byte <= b'9':
                         may_duplicate = True
-                if last_byte == b'[' and c == b'H':
+                if last_byte == b'[' and char == b'H':
                     has_cursor_home = True
-                last_byte = c
-            elif c == b'\x1b':
+                last_byte = char
+            elif char == b'\x1b':
                 skip_vt100 = True
-                last_byte = c
-            elif is_trzsz_letter(c):
+                last_byte = char
+            elif is_trzsz_letter(char):
                 if may_duplicate:
                     may_duplicate = False
                     # skip the duplicate characters, e.g., the "8" in "8\r\n\x1b[25;119H8".
-                    if has_new_line and len(buffer) > 0 and (c == buffer[-1] or pre_has_cursor_home):
-                        buffer[-1] = c
+                    if has_new_line and len(buffer) > 0 and (char == buffer[-1] or pre_has_cursor_home):
+                        buffer[-1] = char
                         continue
-                buffer.append(c)
+                buffer.append(char)
                 pre_has_cursor_home = has_cursor_home
                 has_cursor_home = False
                 has_new_line = False
         if new_line_idx >= 0 and len(buffer) > 0 and not skip_vt100:
             return b''.join(buffer).decode(encoding='latin1', errors='surrogateescape')
 
+
 def recv_line(expect_typ, may_has_junk=False):
-    if is_windows or remote_is_windows:
+    if IS_RUNNING_ON_WINDOWS or GLOBAL.windows_protocol:
         line = read_line_on_windows()
         idx = line.rfind('#' + expect_typ + ':')
         if idx >= 0:
             line = line[idx:]
         return line
     line = read_line()
-    if tmux_output_junk or may_has_junk:
+    if CONFIG.tmux_output_junk or may_has_junk:
         if line:
             while line[-1] == '\r':
                 line = line[:-1] + read_line()
@@ -323,6 +373,7 @@ def recv_line(expect_typ, may_has_junk=False):
         if idx >= 0:
             line = line[idx:]
     return line
+
 
 def recv_check(expect_typ, may_has_junk=False):
     line = recv_line(expect_typ, may_has_junk)
@@ -335,122 +386,139 @@ def recv_check(expect_typ, may_has_junk=False):
         raise TrzszError(buf, typ)
     return buf
 
+
 def send_integer(typ, value):
     send_line(typ, str(value))
+
 
 def recv_integer(typ, may_has_junk=False):
     return int(recv_check(typ, may_has_junk))
 
+
 def check_integer(expect):
     result = recv_integer('SUCC')
     if result != expect:
-        raise TrzszError('[%d] <> [%d]' % (result, expect))
+        raise TrzszError('Integer check [%d] <> [%d]' % (result, expect))
+
 
 def send_string(typ, buf):
     if sys.version_info >= (3, ) or isinstance(buf, unicode):
         buf = buf.encode('utf8')
     send_line(typ, encode_buffer(buf))
 
+
 def recv_string(typ, may_has_junk=False):
     return decode_buffer(recv_check(typ, may_has_junk)).decode('utf8')
+
 
 def check_string(expect):
     result = recv_string('SUCC')
     if result != expect:
-        raise TrzszError('[%s] <> [%s]' % (result, expect))
+        raise TrzszError('String check [%s] <> [%s]' % (result, expect))
+
 
 def send_binary(typ, data):
     send_line(typ, encode_buffer(data))
 
+
 def recv_binary(typ, may_has_junk=False):
     return decode_buffer(recv_check(typ, may_has_junk))
+
 
 def check_binary(expect):
     result = recv_binary('SUCC')
     if result != expect:
-        raise TrzszError('[%s] <> [%s]' % (str(result), str(expect)))
+        raise TrzszError('Binary check [%s] <> [%s]' % (str(result), str(expect)))
+
 
 def get_escape_chars(escape_all):
     escape_chars = [['\xee', '\xee\xee'], ['\x7e', '\xee\x31']]
     if escape_all:
-        for i, e in enumerate('\x02\x10\x1b\x1d\x9d'):
-            escape_chars.append([e, '\xee' + chr(0x41 + i)])
+        for i, char in enumerate('\x02\x10\x1b\x1d\x9d'):
+            escape_chars.append([char, '\xee' + chr(0x41 + i)])
     return escape_chars
+
 
 def escape_data(data, escape_chars):
     if not escape_chars:
         return data
     pattern = b'|'.join(b'(%s)' % re.escape(p.encode('latin1')) for p, s in escape_chars)
     substs = [s.encode('latin1') for p, s in escape_chars]
-    replace = lambda m: substs[m.lastindex - 1]
-    return re.sub(pattern, replace, data)
+    return re.sub(pattern, lambda m: substs[m.lastindex - 1], data)
+
 
 def unescape_data(data, escape_chars):
     if not escape_chars:
         return data
     pattern = b'|'.join(b'(%s)' % re.escape(s.encode('latin1')) for p, s in escape_chars)
     substs = [p.encode('latin1') for p, s in escape_chars]
-    replace = lambda m: substs[m.lastindex - 1]
-    return re.sub(pattern, replace, data)
+    return re.sub(pattern, lambda m: substs[m.lastindex - 1], data)
 
-def send_data(data, binary, escape_chars):
-    if not binary:
+
+def send_data(data):
+    if not CONFIG.binary:
         send_binary('DATA', data)
         return
-    buf = escape_data(data, escape_chars)
-    out = tmux_real_stdout.buffer if hasattr(tmux_real_stdout, 'buffer') else tmux_real_stdout
+    buf = escape_data(data, CONFIG.escape_chars)
+    out = GLOBAL.trzsz_writer.buffer if hasattr(GLOBAL.trzsz_writer, 'buffer') else GLOBAL.trzsz_writer
     out.write(b'#DATA:%d\n%s' % (len(buf), buf))
     out.flush()
 
+
 def recv_timeout(_signum, _frame):
-    global clean_timeout
-    clean_timeout = 3
+    GLOBAL.clean_timeout = 3
     raise TrzszError('Receive data timeout', trace=False)
 
-if not is_windows:
+
+if not IS_RUNNING_ON_WINDOWS:
     signal.signal(signal.SIGALRM, recv_timeout)
 
-def recv_data(binary, escape_chars, timeout):
-    if timeout > 0 and not is_windows:
-        signal.alarm(timeout)
+
+def recv_data():
+    if CONFIG.timeout > 0 and not IS_RUNNING_ON_WINDOWS:
+        signal.alarm(CONFIG.timeout)
     try:
-        if not binary:
+        if not CONFIG.binary:
             return recv_binary('DATA')
         size = recv_integer('DATA')
         data = read_binary(size)
-        return unescape_data(data, escape_chars)
+        return unescape_data(data, CONFIG.escape_chars)
     finally:
-        if timeout > 0 and not is_windows:
+        if CONFIG.timeout > 0 and not IS_RUNNING_ON_WINDOWS:
             signal.alarm(0)
+
 
 def send_json(typ, dic):
     send_string(typ, json.dumps(dic, encoding='latin1') if sys.version_info < (3, ) else json.dumps(dic))
+
 
 def recv_json(typ, may_has_junk=False):
     dic = recv_string(typ, may_has_junk)
     try:
         return json.loads(dic, encoding='latin1') if sys.version_info < (3, ) else json.loads(dic)
-    except ValueError as e:
-        raise TrzszError(dic, str(e))
+    except ValueError as ex:
+        raise TrzszError(dic, str(ex))
 
-def send_action(confirm, version, is_windows):
-    action = {'lang': 'py', 'confirm': confirm, 'version': version, 'support_dir': True}
-    if is_windows:
-        action['binary'] = False
+
+def send_action(confirm, version, remote_is_windows):
+    action = {'lang': 'py', 'confirm': confirm, 'version': version, 'support_dir': True, 'protocol': 0}
+    if IS_RUNNING_ON_WINDOWS or remote_is_windows:
         action['newline'] = '!\n'
-        global protocol_newline, remote_is_windows
-        remote_is_windows = True
-        protocol_newline = '!\n'
+        action['binary'] = False
+    if remote_is_windows:
+        GLOBAL.windows_protocol = True
+        CONFIG.newline = '!\n'
     send_json('ACT', action)
+
 
 def recv_action():
     action = recv_json('ACT')
     if 'newline' in action:
-        global protocol_newline
-        protocol_newline = action['newline']
+        CONFIG.newline = action['newline']
     return action
 
-def send_config(args, escape_chars):
+
+def send_config(args, action, escape_chars):
     config = {'lang': 'py'}
     if args.quiet:
         config['quiet'] = True
@@ -465,47 +533,52 @@ def send_config(args, escape_chars):
         config['timeout'] = args.timeout
     if args.overwrite:
         config['overwrite'] = True
-    if tmux_real_stdout != sys.stdout:
+    if GLOBAL.tmux_mode == TMUX_NORMAL_MODE:
         config['tmux_output_junk'] = True
-        config['tmux_pane_width'] = tmux_pane_width
-    global transfer_config
-    transfer_config = config
+        config['tmux_pane_width'] = CONFIG.tmux_pane_width
+    if 'protocol' in action:
+        config['protocol'] = action['protocol']
+    CONFIG.loads(config)
     send_json('CFG', config)
+
 
 def recv_config():
     config = recv_json('CFG', True)
-    global transfer_config, tmux_output_junk
-    transfer_config = config
-    tmux_output_junk = config.get('tmux_output_junk', False)
-    return config
+    CONFIG.loads(config)
+    return CONFIG
 
-max_chunk_time = 0
 
 def stop_transferring():
-    global clean_timeout
-    clean_timeout = max(max_chunk_time * 2, 0.5)
+    GLOBAL.clean_timeout = max(GLOBAL.max_chunk_time * 2, 0.5)
     os.kill(os.getpid(), signal.SIGINT)
+
 
 def terminate(_signum, _frame):
     raise TrzszError('Terminated', trace=False)
 
+
 signal.signal(signal.SIGTERM, terminate)
+
 
 def interrupte(_signum, _frame):
     raise TrzszError('Stopped', trace=False)
 
+
 signal.signal(signal.SIGINT, interrupte)
+
 
 def client_exit(msg):
     send_string('EXIT', msg)
 
+
 def recv_exit():
     return recv_string('EXIT')
+
 
 def server_exit(msg):
     clean_input(0.5)
     reset_stdin_tty()
-    if is_windows:
+    if IS_RUNNING_ON_WINDOWS:
         msg = msg.replace('\n', '\r\n')
         sys.stdout.write('\x1b[H\x1b[2J\x1b[?1049l')
     else:
@@ -513,8 +586,9 @@ def server_exit(msg):
     sys.stdout.write(msg)
     sys.stdout.write('\r\n')
 
+
 def client_error(ex):
-    clean_input(clean_timeout)
+    clean_input(GLOBAL.clean_timeout)
     err_msg = TrzszError.get_err_msg(ex)
     trace = True
     if isinstance(ex, TrzszError):
@@ -529,8 +603,9 @@ def client_error(ex):
     if trace:
         sys.stderr.write(err_msg + '\n')
 
+
 def server_error(ex):
-    clean_input(clean_timeout)
+    clean_input(GLOBAL.clean_timeout)
     err_msg = TrzszError.get_err_msg(ex)
     trace = True
     if isinstance(ex, TrzszError):
@@ -541,6 +616,7 @@ def server_error(ex):
     send_string('FAIL' if trace else 'fail', err_msg)
     server_exit(err_msg)
 
+
 def check_path_writable(dest_path):
     if not os.path.isdir(dest_path):
         raise TrzszError('Not a directory: %s' % dest_path, trace=False)
@@ -548,7 +624,8 @@ def check_path_writable(dest_path):
         raise TrzszError('No permission to write: %s' % dest_path, trace=False)
     return True
 
-def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):
+
+def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):  # pylint: disable=too-many-arguments
     if not stat.S_ISDIR(mode):
         if not stat.S_ISREG(mode):
             raise TrzszError('Not a regular file: %s' % path, trace=False)
@@ -562,35 +639,38 @@ def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):
     visited_dir.add(real_path)
     file_list.append({'path_id': path_id, 'abs_path': path, 'path_name': rel_path, 'is_dir': True})
     for file in os.listdir(path):
-        p = os.path.join(path, file)
-        r = rel_path[:]
-        r.append(file)
-        check_path_readable(path_id, p, os.stat(p).st_mode, file_list, r, visited_dir)
+        file_path = os.path.join(path, file)
+        rel_path_copy = rel_path[:]
+        rel_path_copy.append(file)
+        check_path_readable(path_id, file_path, os.stat(file_path).st_mode, file_list, rel_path_copy, visited_dir)
+
 
 def check_paths_readable(paths, directory):
     file_list = []
-    for i, p in enumerate(paths):
-        path = os.path.abspath(p)
-        if not os.path.exists(path):
-            raise TrzszError('No such file: %s' % path, trace=False)
-        mode = os.stat(path).st_mode
+    for i, path in enumerate(paths):
+        abs_path = os.path.abspath(path)
+        if not os.path.exists(abs_path):
+            raise TrzszError('No such file: %s' % abs_path, trace=False)
+        mode = os.stat(abs_path).st_mode
         if not directory and stat.S_ISDIR(mode):
-            raise TrzszError('Is a directory: %s' % path, trace=False)
+            raise TrzszError('Is a directory: %s' % abs_path, trace=False)
         visited_dir = set()
-        check_path_readable(i, path, mode, file_list, [os.path.basename(path)], visited_dir)
+        check_path_readable(i, abs_path, mode, file_list, [os.path.basename(abs_path)], visited_dir)
     return file_list
+
 
 def check_duplicate_names(files):
     names = set()
-    for f in files:
-        p = os.path.join(*f['path_name'])
-        if p in names:
-            raise TrzszError('Duplicate name: %s' % p, trace=False)
-        names.add(p)
+    for file in files:
+        path = os.path.join(*file['path_name'])
+        if path in names:
+            raise TrzszError('Duplicate name: %s' % path, trace=False)
+        names.add(path)
+
 
 def check_tmux():
     if 'TMUX' not in os.environ:
-        return NO_TMUX
+        return NO_TMUX_MODE
     out = subprocess.check_output(
         ['tmux', 'display-message', '-p', '#{client_tty}:#{client_control_mode}:#{pane_width}'])
     output = out.decode('utf8').strip()
@@ -599,28 +679,32 @@ def check_tmux():
         raise TrzszError('tmux unexpect output: %s' % output)
     tmux_tty, control_mode, pane_width = tokens
     if control_mode == '1' or (not tmux_tty.startswith('/')) or (not os.path.exists(tmux_tty)):
+        GLOBAL.tmux_mode = TMUX_CONTROL_MODE
         return TMUX_CONTROL_MODE
-    global tmux_real_stdout, tmux_pane_width
-    tmux_real_stdout = open(tmux_tty, 'w')
+    GLOBAL.trzsz_writer = open(tmux_tty, 'w')  # pylint: disable=consider-using-with
     if pane_width:
-        tmux_pane_width = int(pane_width)
+        CONFIG.tmux_pane_width = int(pane_width)
+    GLOBAL.tmux_mode = TMUX_NORMAL_MODE
     return TMUX_NORMAL_MODE
+
 
 def get_columns():
     try:
         _rows, columns = subprocess.check_output(['stty', 'size']).split()
         return int(columns)
-    except Exception:
+    except:  # NOQA pylint:disable=bare-except
         return 0
+
 
 def reconfigure_stdin():
     if sys.version_info >= (3, ):
         return
     try:
-        reload(sys)  # pylint:disable=undefined-variable
+        reload(sys)  # NOQA pylint:disable=undefined-variable
         sys.setdefaultencoding('latin1')
     except AttributeError:
         pass
+
 
 def send_file_num(num, callback):
     send_integer('NUM', num)
@@ -628,18 +712,20 @@ def send_file_num(num, callback):
     if callback:
         callback.on_num(num)
 
-def send_file_name(file, directory, callback):
+
+def send_file_name(file, callback):
     name = file['path_name'][-1]
-    if directory:
-        f = file.copy()
-        del f['abs_path']
-        send_json('NAME', f)
+    if CONFIG.directory:
+        file_copy = file.copy()
+        del file_copy['abs_path']
+        send_json('NAME', file_copy)
     else:
         send_string('NAME', name)
     remote_name = recv_string('SUCC')
     if callback:
         callback.on_name(name)
     return remote_name
+
 
 def send_file_size(file, callback):
     file_size = os.path.getsize(file['abs_path'])
@@ -649,31 +735,32 @@ def send_file_size(file, callback):
         callback.on_size(file_size)
     return file_size
 
-def send_file_data(file, size, binary, escape_chars, max_buf_size, callback):
+
+def send_file_data(file, size, callback):
     step = 0
     if callback:
         callback.on_step(step)
     buf_size = 1024
-    m = hashlib.md5()
+    md5 = hashlib.md5()
     while step < size:
         begin_time = time.time()
         data = file.read(buf_size)
         length = len(data)
-        send_data(data, binary, escape_chars)
-        m.update(data)
+        send_data(data)
+        md5.update(data)
         check_integer(length)
         step += length
         if callback:
             callback.on_step(step)
         chunk_time = time.time() - begin_time
-        if length == buf_size and chunk_time < 0.5 and buf_size < max_buf_size:
-            buf_size = min(buf_size * 2, max_buf_size)
+        if length == buf_size and chunk_time < 0.5 and buf_size < CONFIG.max_buf_size:
+            buf_size = min(buf_size * 2, CONFIG.max_buf_size)
         elif chunk_time >= 2.0 and buf_size > 1024:
             buf_size = 1024
-        global max_chunk_time
-        if chunk_time > max_chunk_time:
-            max_chunk_time = chunk_time
-    return m.digest()
+        if chunk_time > GLOBAL.max_chunk_time:
+            GLOBAL.max_chunk_time = chunk_time
+    return md5.digest()
+
 
 def send_file_md5(digest, callback):
     send_binary('MD5', digest)
@@ -681,18 +768,13 @@ def send_file_md5(digest, callback):
     if callback:
         callback.on_done()
 
-def send_files(file_list, callback=None):
-    binary = transfer_config.get('binary', False)
-    directory = transfer_config.get('directory', False)
-    max_buf_size = transfer_config.get('bufsize', 10 * 1024 * 1024)
-    escape_chars = transfer_config.get('escape_chars', [])
 
+def send_files(file_list, callback=None):
     send_file_num(len(file_list), callback)
 
     remote_list = []
-
     for file in file_list:
-        remote_name = send_file_name(file, directory, callback)
+        remote_name = send_file_name(file, callback)
 
         if remote_name not in remote_list:
             remote_list.append(remote_name)
@@ -702,12 +784,13 @@ def send_files(file_list, callback=None):
 
         size = send_file_size(file, callback)
 
-        with open(file['abs_path'], 'rb') as f:
-            md5 = send_file_data(f, size, binary, escape_chars, max_buf_size, callback)
+        with open(file['abs_path'], 'rb') as file_obj:
+            md5 = send_file_data(file_obj, size, callback)
 
         send_file_md5(md5, callback)
 
     return remote_list
+
 
 def recv_file_num(callback):
     num = recv_integer('NUM')
@@ -715,6 +798,7 @@ def recv_file_num(callback):
     if callback:
         callback.on_num(num)
     return num
+
 
 def get_new_name(path, name):
     if not os.path.exists(os.path.join(path, name)):
@@ -725,17 +809,19 @@ def get_new_name(path, name):
             return new_name
     raise TrzszError('Fail to assign new file name', trace=False)
 
+
 def do_create_file(path):
     try:
         return open(path, 'wb')
-    except IOError as e:
-        if e.errno == 21 or (is_windows and os.path.isdir(path)):
+    except IOError as ex:
+        if ex.errno == 21 or (IS_RUNNING_ON_WINDOWS and os.path.isdir(path)):
             err_msg = 'Is a directory: %s' % path
-        elif e.errno == 13:
+        elif ex.errno == 13:
             err_msg = 'No permission to write: %s' % path
         else:
-            err_msg = str(e)
+            err_msg = str(ex)
         raise TrzszError(err_msg, trace=False)
+
 
 def do_create_directory(path):
     if not os.path.exists(path):
@@ -743,23 +829,26 @@ def do_create_directory(path):
     if not os.path.isdir(path):
         raise TrzszError('Not a directory: %s' % path, trace=False)
 
-def create_file(path, file_name, overwrite):
-    if overwrite:
+
+def create_file(path, file_name):
+    if CONFIG.overwrite:
         local_name = file_name
     else:
         local_name = get_new_name(path, file_name)
     file = do_create_file(os.path.join(path, local_name))
     return file, local_name
 
+
 file_name_map = {}
 
-def create_dir_or_file(path, file, overwrite):
+
+def create_dir_or_file(path, file):
     if 'path_name' not in file or 'path_id' not in file or 'is_dir' not in file or len(file['path_name']) < 1:
         raise TrzszError('Invalid name: %s' % path, trace=False)
 
     file_name = file['path_name'][-1]
 
-    if overwrite:
+    if CONFIG.overwrite:
         local_name = file['path_name'][0]
     else:
         if file['path_id'] in file_name_map:
@@ -769,9 +858,9 @@ def create_dir_or_file(path, file, overwrite):
             file_name_map[file['path_id']] = local_name
 
     if len(file['path_name']) > 1:
-        p = os.path.join(path, local_name, *file['path_name'][1:-1])
-        do_create_directory(p)
-        full_path = os.path.join(p, file_name)
+        parent_path = os.path.join(path, local_name, *file['path_name'][1:-1])
+        do_create_directory(parent_path)
+        full_path = os.path.join(parent_path, file_name)
     else:
         full_path = os.path.join(path, local_name)
 
@@ -781,17 +870,19 @@ def create_dir_or_file(path, file, overwrite):
     file = do_create_file(full_path)
     return file, local_name, file_name
 
-def recv_file_name(path, directory, overwrite, callback):
-    if directory:
+
+def recv_file_name(path, callback):
+    if CONFIG.directory:
         json_name = recv_json('NAME')
-        file, local_name, file_name = create_dir_or_file(path, json_name, overwrite)
+        file, local_name, file_name = create_dir_or_file(path, json_name)
     else:
         file_name = recv_string('NAME')
-        file, local_name = create_file(path, file_name, overwrite)
+        file, local_name = create_file(path, file_name)
     send_string('SUCC', local_name)
     if callback:
         callback.on_name(file_name)
     return file, local_name
+
 
 def recv_file_size(callback):
     file_size = recv_integer('SIZE')
@@ -800,25 +891,26 @@ def recv_file_size(callback):
         callback.on_size(file_size)
     return file_size
 
-def recv_file_data(file, size, binary, escape_chars, timeout, callback):
+
+def recv_file_data(file, size, callback):
     step = 0
     if callback:
         callback.on_step(step)
-    m = hashlib.md5()
+    md5 = hashlib.md5()
     while step < size:
         begin_time = time.time()
-        data = recv_data(binary, escape_chars, timeout)
+        data = recv_data()
         file.write(data)
         step += len(data)
         if callback:
             callback.on_step(step)
         send_integer('SUCC', len(data))
-        m.update(data)
+        md5.update(data)
         chunk_time = time.time() - begin_time
-        global max_chunk_time
-        if chunk_time > max_chunk_time:
-            max_chunk_time = chunk_time
-    return m.digest()
+        if chunk_time > GLOBAL.max_chunk_time:
+            GLOBAL.max_chunk_time = chunk_time
+    return md5.digest()
+
 
 def recv_file_md5(digest, callback):
     expect_digest = recv_binary('MD5')
@@ -828,19 +920,13 @@ def recv_file_md5(digest, callback):
     if callback:
         callback.on_done()
 
-def recv_files(dest_path, callback=None):
-    binary = transfer_config.get('binary', False)
-    directory = transfer_config.get('directory', False)
-    overwrite = transfer_config.get('overwrite', False)
-    timeout = transfer_config.get('timeout', 100)
-    escape_chars = transfer_config.get('escape_chars', [])
 
+def recv_files(dest_path, callback=None):
     num = recv_file_num(callback)
 
     local_list = []
-
-    for i in range(num):
-        file, local_name = recv_file_name(dest_path, directory, overwrite, callback)
+    for _ in range(num):
+        file, local_name = recv_file_name(dest_path, callback)
 
         if local_name not in local_list:
             local_list.append(local_name)
@@ -850,7 +936,7 @@ def recv_files(dest_path, callback=None):
 
         with file:
             size = recv_file_size(callback)
-            md5 = recv_file_data(file, size, binary, escape_chars, timeout, callback)
+            md5 = recv_file_data(file, size, callback)
 
         recv_file_md5(md5, callback)
 

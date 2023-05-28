@@ -23,12 +23,12 @@
 import re
 from setuptools import setup, find_packages
 
-version_regex = r'[ \t]*__version__[ \t]*=[ \t]*[\'"](\d+\.\d+\.\d+)[\'"]'
-with open('trzsz/svr/__version__.py', 'r') as f:
-    version = re.search(version_regex, f.read()).group(1)
+VERSION_REGEX = r'[ \t]*__version__[ \t]*=[ \t]*[\'"](\d+\.\d+\.\d+)[\'"]'
+with open('trzsz/svr/__version__.py', 'r') as file:
+    version = re.search(VERSION_REGEX, file.read()).group(1)
 
-with open('README.md', 'rb') as f:
-    long_description = f.read().decode('utf8')
+with open('README.md', 'rb') as file:
+    long_description = file.read().decode('utf8')
 
 classifiers = [
     'Development Status :: 5 - Production/Stable',
@@ -56,22 +56,22 @@ entry_points = {
 }
 
 setup(
-    name                            = 'trzsz-svr',
-    version                         = version,
-    author                          = 'Lonny Wong',
-    author_email                    = 'lonnywong@qq.com',
-    packages                        = find_packages(),
-    namespace_packages              = ['trzsz'],
-    long_description                = long_description,
-    long_description_content_type   = 'text/markdown',
-    url                             = 'https://trzsz.github.io',
-    install_requires                = [ 'trzsz-libs == ' + version ],
-    license                         = 'MIT License',
-    classifiers                     = classifiers,
-    entry_points                    = entry_points,
-    keywords                        = 'trzsz trz tsz lrzsz rz sz tmux iTerm2 progressbar',
-    zip_safe                        = False,
-    description                     = 'trzsz is a simple file transfer tools, ' \
-                                      'similar to lrzsz ( rz / sz ) and compatible with tmux, ' \
-                                      'which works with iTerm2 and has a nice progress bar.',
+    name='trzsz-svr',
+    version=version,
+    author='Lonny Wong',
+    author_email='lonnywong@qq.com',
+    packages=find_packages(),
+    namespace_packages=['trzsz'],
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    url='https://trzsz.github.io',
+    install_requires=['trzsz-libs == ' + version],
+    license='MIT License',
+    classifiers=classifiers,
+    entry_points=entry_points,
+    keywords='trzsz trz tsz lrzsz rz sz tmux iTerm2 progressbar',
+    zip_safe=False,
+    description='trzsz is a simple file transfer tools, '
+    'similar to lrzsz ( rz / sz ) and compatible with tmux, '
+    'which works with iTerm2 and has a nice progress bar.',
 )

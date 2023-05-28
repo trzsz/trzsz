@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2022 Lonny Wong
+# Copyright (c) 2023 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,9 +21,11 @@
 # SOFTWARE.
 
 import subprocess
-from trzsz.libs.utils import stop_transferring, TrzszCallback
+from trzsz.libs import utils
 
-class ZenityProgressBar(TrzszCallback):
+
+class ZenityProgressBar(utils.TrzszCallback):
+
     def __init__(self, action):
         self.num = 0
         self.idx = 0
@@ -41,7 +43,8 @@ class ZenityProgressBar(TrzszCallback):
     def on_num(self, num):
         self.num = num
         try:
-            title = '%s file(s)' % self.action
+            title = f'{self.action} file(s)'
+            # pylint: disable-next=consider-using-with
             self.proc = subprocess.Popen(['/usr/local/bin/zenity', '--progress', '--title', title, '--text', ''],
                                          stdin=subprocess.PIPE,
                                          stdout=subprocess.PIPE,
@@ -51,8 +54,7 @@ class ZenityProgressBar(TrzszCallback):
 
     def _update_progress(self, step):
         percentage = step * 100 // self.size if self.size else 0
-        progress = '%d\n# %sing %s %d%% ( %d / %d ) ...\n' \
-                   % (percentage, self.action, self.name, percentage, self.idx, self.num)
+        progress = f'{percentage}\n# {self.action}ing {self.name} {percentage}% ( {self.idx} / {self.num} ) ...\n'
         if progress == self.progress:
             return
         self.progress = progress
@@ -68,7 +70,7 @@ class ZenityProgressBar(TrzszCallback):
         try:
             self._update_progress(0)
         except EnvironmentError:
-            stop_transferring()
+            utils.stop_transferring()
 
     def on_size(self, size):
         self.size = size
@@ -80,17 +82,17 @@ class ZenityProgressBar(TrzszCallback):
             self._update_progress(step)
         except EnvironmentError:
             if self.idx < self.num or step < self.size:
-                stop_transferring()
+                utils.stop_transferring()
 
     def on_done(self):
         if not self.proc:
             return
         try:
-            self.proc.stdin.write(('# %s %s finished.\n' % (self.action, self.name)).encode('utf8'))
+            self.proc.stdin.write(f'# {self.action} {self.name} finished.\n'.encode('utf8'))
             self.proc.stdin.flush()
         except EnvironmentError:
             if self.idx < self.num:
-                stop_transferring()
+                utils.stop_transferring()
         if self.idx == self.num:
             self.proc.terminate()
             self.proc = None

@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2022 Lonny Wong
+# Copyright (c) 2023 Lonny Wong
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -48,51 +48,60 @@ ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
 DISABLE_NEWLINE_AUTO_RETURN = 0x0008
 ENABLE_LVB_GRID_WORLDWIDE = 0x0010
 
+
 def get_console_mode(handle):
     mode = wintypes.DWORD(0)
-    h = windll.kernel32.GetStdHandle(handle)
-    windll.kernel32.GetConsoleMode(h, byref(mode))
+    windll.kernel32.GetConsoleMode(windll.kernel32.GetStdHandle(handle), byref(mode))
     return mode.value
 
+
 def set_console_mode(handle, mode):
-    h = windll.kernel32.GetStdHandle(handle)
-    windll.kernel32.SetConsoleMode(h, mode)
+    windll.kernel32.SetConsoleMode(windll.kernel32.GetStdHandle(handle), mode)
+
 
 def get_console_size():
     csbi = create_string_buffer(22)
-    h = windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
-    if windll.kernel32.GetConsoleScreenBufferInfo(h, csbi):
-        (bufx, bufy, curx, cury, wattr, left, top, right, bottom, maxx, maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
+    if windll.kernel32.GetConsoleScreenBufferInfo(windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE), csbi):
+        (_bufx, _bufy, _curx, _cury, _wattr, left, top, right, bottom, _maxx,
+         _maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
         return right - left + 1, bottom - top + 1
     return 0, 0
 
-stdin_old_mode = None
-stdout_old_mode = None
+
+class WinGlobalVariables:
+
+    def __init__(self):
+        self.stdin_old_mode = None
+        self.stdout_old_mode = None
+
+
+WIN_GLOBAL = WinGlobalVariables()
+
 
 def set_stdin_raw():
-    global stdin_old_mode
-    stdin_old_mode = get_console_mode(STD_INPUT_HANDLE)
-    raw_mode = stdin_old_mode & (~(ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT))
+    WIN_GLOBAL.stdin_old_mode = get_console_mode(STD_INPUT_HANDLE)
+    raw_mode = WIN_GLOBAL.stdin_old_mode & (~(ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT))
     set_console_mode(STD_INPUT_HANDLE, raw_mode)
 
+
 def reset_stdin_tty():
-    global stdin_old_mode
-    if stdin_old_mode:
-        set_console_mode(STD_INPUT_HANDLE, stdin_old_mode)
-        stdin_old_mode = None
+    if WIN_GLOBAL.stdin_old_mode:
+        set_console_mode(STD_INPUT_HANDLE, WIN_GLOBAL.stdin_old_mode)
+        WIN_GLOBAL.stdin_old_mode = None
+
 
 def reset_virtual_terminal():
-    global stdout_old_mode
-    if stdout_old_mode:
-        set_console_mode(STD_OUTPUT_HANDLE, stdout_old_mode)
-        stdout_old_mode = None
+    if WIN_GLOBAL.stdout_old_mode:
+        set_console_mode(STD_OUTPUT_HANDLE, WIN_GLOBAL.stdout_old_mode)
+        WIN_GLOBAL.stdout_old_mode = None
+
 
 def enable_virtual_terminal():
-    global stdout_old_mode
-    stdout_old_mode = get_console_mode(STD_OUTPUT_HANDLE)
+    WIN_GLOBAL.stdout_old_mode = get_console_mode(STD_OUTPUT_HANDLE)
     atexit.register(reset_virtual_terminal)
-    new_mode = stdout_old_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN
+    new_mode = WIN_GLOBAL.stdout_old_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN
     set_console_mode(STD_OUTPUT_HANDLE, new_mode)
+
 
 def setup_console_output():
     sys.stdout.write('\x1b[?1049h\x1b[H\x1b[2J')
@@ -109,5 +118,5 @@ def setup_console_output():
     if width <= len(logo[0]) or height <= len(logo) + 2:
         return
     pad = (width - len(logo[0])) // 2
-    for s in logo:
-        sys.stdout.write(' ' * pad + s + '\r\n')
+    for line in logo:
+        sys.stdout.write(' ' * pad + line + '\r\n')

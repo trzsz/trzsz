@@ -1,0 +1,11 @@
+[FORMAT]
+max-line-length=120
+
+[MESSAGES CONTROL]
+disable = missing-docstring,
+          raise-missing-from,
+          unspecified-encoding,
+          broad-exception-caught,
+          consider-using-f-string,
+          too-few-public-methods,
+          too-many-instance-attributes,

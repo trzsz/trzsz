@@ -21,30 +21,33 @@
 # SOFTWARE.
 
 import time
-from trzsz.libs.utils import TrzszCallback
+from trzsz.libs import utils
 
-def display_length(s):
-    l = 0
-    for c in s:
-        l += 1 if len(c.encode('utf8')) == 1 else 2
-    return l
 
-def ellipsis_string(s, m):
-    m -= 3
-    l = 0
-    r = []
-    for c in s:
-        if len(c.encode('utf8')) > 1:
-            if l + 2 > m:
+def display_length(output):
+    length = 0
+    for char in output:
+        length += 1 if len(char.encode('utf8')) == 1 else 2
+    return length
+
+
+def ellipsis_string(text, max_len):
+    max_len -= 3
+    length = 0
+    result = []
+    for char in text:
+        if len(char.encode('utf8')) > 1:
+            if length + 2 > max_len:
                 break
-            l += 2
+            length += 2
         else:
-            if l + 1 > m:
+            if length + 1 > max_len:
                 break
-            l += 1
-        r.append(c)
-    r.append('...')
-    return ''.join(r), l + 3
+            length += 1
+        result.append(char)
+    result.append('...')
+    return ''.join(result), length + 3
+
 
 def size_to_str(size):
     unit = 'B'
@@ -72,6 +75,7 @@ def size_to_str(size):
         return f'{size:.1f} {unit}'
     return f'{size:.2f} {unit}'
 
+
 def time_to_str(seconds):
     result = ''
     if seconds >= 3600:
@@ -83,9 +87,11 @@ def time_to_str(seconds):
     result += str(second) if second >= 10 else ('0' + str(second))
     return result
 
+
 SPEED_ARRAY_SIZE = 30
 
-class TextProgressBar(TrzszCallback):
+
+class TextProgressBar(utils.TrzszCallback):  # pylint: disable=too-many-instance-attributes
 
     def __init__(self, loop, session, tmux_pane_width=None):
         self.num = 0
@@ -181,7 +187,7 @@ class TextProgressBar(TrzszCallback):
 
         return speed
 
-    def _progress_text(self, percentage, total, speed, eta):
+    def _progress_text(self, percentage, total, speed, eta):  # pylint: disable=too-many-branches
         bar_min_len = 24
         left = f'({self.idx}/{self.num}) {self.name}' if self.num > 1 else self.name
         left_len = display_length(left)

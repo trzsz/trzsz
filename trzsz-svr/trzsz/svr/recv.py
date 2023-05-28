@@ -20,11 +20,35 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
 import sys
 import time
 import argparse
-from trzsz.libs.utils import *
+from trzsz.libs import utils
 from trzsz.svr.__version__ import __version__
+
+
+def recv_files(args, dest_path):
+    action = utils.recv_action()
+
+    if not action.get('confirm', False):
+        utils.server_exit('Cancelled')
+        return
+
+    # check if the client doesn't support binary mode
+    if args.binary and action.get('binary') is False:
+        args.binary = False
+    # check if the client doesn't support transfer directory
+    if args.directory and action.get('support_dir') is not True:
+        raise utils.TrzszError("The client doesn't support transfer directory", trace=False)
+
+    utils.send_config(args, action, utils.get_escape_chars(args.escape))
+
+    local_list = utils.recv_files(dest_path, None)
+
+    _ = utils.recv_exit()
+    utils.server_exit('Received %s to %s' % (', '.join(local_list), dest_path))
+
 
 def main():
     parser = argparse.ArgumentParser(description='Receive file(s), similar to rz and compatible with tmux.',
@@ -40,7 +64,7 @@ def main():
                         min_size='1K',
                         max_size='1G',
                         default='10M',
-                        action=BufferSizeParser,
+                        action=utils.BufferSizeParser,
                         metavar='N',
                         help='max buffer chunk size (1K<=N<=1G). (default: 10M)')
     parser.add_argument('-t',
@@ -51,16 +75,16 @@ def main():
                         help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 20)')
     parser.add_argument('path', nargs='?', default='.', help='path to save file(s). (default: current directory)')
     args = parser.parse_args()
-    dest_path = convert_to_unicode(os.path.abspath(args.path))
+    dest_path = utils.convert_to_unicode(os.path.abspath(args.path))
 
     try:
-        check_path_writable(dest_path)
-    except TrzszError as e:
-        sys.stderr.write(str(e) + '\n')
+        utils.check_path_writable(dest_path)
+    except utils.TrzszError as ex:
+        sys.stderr.write(str(ex) + '\n')
         return
 
-    tmux_mode = check_tmux()
-    if args.binary and tmux_mode != NO_TMUX:
+    tmux_mode = utils.check_tmux()
+    if args.binary and tmux_mode != utils.NO_TMUX_MODE:
         # 1. In tmux 1.8 normal mode, supports binary upload actually. But it's old version.
         # 2. In tmux 3.0a normal mode, tmux always runs with a UTF-8 locale for input.
         #    Tmux will convert binary data to UTF-8 encoding, and no option to change it.
@@ -71,17 +95,17 @@ def main():
         #    While sending the binary data, iTerm2 doesn't send 'send-keys' commands to tmux.
         sys.stdout.write('Binary upload in tmux is not supported, auto switch to base64 mode.\n')
         args.binary = False
-    if args.binary and is_windows:
+    if args.binary and utils.IS_RUNNING_ON_WINDOWS:
         sys.stdout.write('Binary upload on Windows is not supported, auto switch to base64 mode.\n')
         args.binary = False
 
     unique_id = int(time.time() * 1000 % 10e10) * 100
-    if is_windows:
-        enable_virtual_terminal()
-        setup_console_output()
+    if utils.IS_RUNNING_ON_WINDOWS:
+        utils.enable_virtual_terminal()
+        utils.setup_console_output()
         unique_id += 10
-    elif tmux_mode == TMUX_NORMAL_MODE:
-        sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < get_columns() < 40 else '\n\x1b[1A\x1b[0J')
+    elif tmux_mode == utils.TMUX_NORMAL_MODE:
+        sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < utils.get_columns() < 40 else '\n\x1b[1A\x1b[0J')
         unique_id += 20
 
     mode = 'D' if args.directory else 'R'
@@ -89,31 +113,14 @@ def main():
     sys.stdout.flush()
 
     try:
-        set_stdin_raw()
-        reconfigure_stdin()
+        utils.set_stdin_raw()
+        utils.reconfigure_stdin()
 
-        action = recv_action()
+        recv_files(args, dest_path)
 
-        if not action.get('confirm', False):
-            server_exit('Cancelled')
-            return
+    except Exception as ex:
+        utils.server_error(ex)
 
-        # check if the client doesn't support binary mode
-        if args.binary and action.get('binary') is False:
-            args.binary = False
-        # check if the client doesn't support transfer directory
-        if args.directory and action.get('support_dir') is not True:
-            raise TrzszError("The client doesn't support transfer directory", trace=False)
-
-        send_config(args, get_escape_chars(args.escape))
-
-        local_list = recv_files(dest_path, None)
-
-        _ = recv_exit()
-        server_exit('Received %s to %s' % (', '.join(local_list), dest_path))
-
-    except Exception as e:
-        server_error(e)
 
 if __name__ == '__main__':
     main()

@@ -23,27 +23,32 @@
 import re
 import unittest
 import unittest.mock
-from .trzsz.iterm2.text_progress import *
+from .trzsz.iterm2 import text_progress
+
 
 class GridSize():
 
     def __init__(self, width):
         self.width = width
 
+
 class Session():
 
     def __init__(self, width):
         self.grid_size = GridSize(width)
 
-def output_length(s):
-    return display_length(re.sub(r'(\u2588|\u2591)', '*', re.sub(r'\u001b\[\d+[mD]', '', re.sub(r'\r', '', s))))
+
+def output_length(output):
+    return text_progress.display_length(
+        re.sub(r'(\u2588|\u2591)', '*', re.sub(r'\u001b\[\d+[mD]', '', re.sub(r'\r', '', output))))
+
 
 class TestTextProgressBar(unittest.TestCase):
 
     def setUp(self):
         self.loop = {}
         self.session = Session(100)
-        self.tgb = TextProgressBar(self.loop, self.session)
+        self.tgb = text_progress.TextProgressBar(self.loop, self.session)
         self.mock_inject = unittest.mock.Mock()
         # pylint: disable=protected-access
         self.tgb._inject_to_iterm2 = self.mock_inject
@@ -102,10 +107,10 @@ class TestTextProgressBar(unittest.TestCase):
             if i < 30:
                 speed = total / (i + 1)
             else:
-                t = 0.0
+                latest_total = 0.0
                 for j in range(i - 30 + 1, i + 1):
-                    t += j * 10
-                speed = t / 30
+                    latest_total += j * 10
+                speed = latest_total / 30
             total_str = f'{total:.0f} B'
             if total >= 10240:
                 total_str = f'{(total / 1024):.1f} KB'
@@ -265,7 +270,7 @@ class TestTextProgressBar(unittest.TestCase):
 
     @unittest.mock.patch('time.time', side_effect=[1646564135, 1646564136, 1646564137, 1646564138, 1646564139])
     def test_tmux_pane(self, mock_time):
-        self.tgb = TextProgressBar(self.loop, self.session, 80)
+        self.tgb = text_progress.TextProgressBar(self.loop, self.session, 80)
         # pylint: disable=protected-access
         self.tgb._inject_to_iterm2 = self.mock_inject
         self.tgb.on_num(2)
@@ -302,6 +307,7 @@ class TestTextProgressBar(unittest.TestCase):
         self.assertEqual(output_length(self.mock_inject.call_args_list[3].args[0]), 80)
 
         self.assertIn('\x1b[80D', self.mock_inject.call_args_list[4].args[0])
+
 
 if __name__ == '__main__':
     unittest.main()

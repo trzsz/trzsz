@@ -1,0 +1,6 @@
+[FORMAT]
+max-line-length=120
+
+[MESSAGES CONTROL]
+disable = missing-docstring,
+          unspecified-encoding,
