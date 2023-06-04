@@ -278,7 +278,7 @@ def read_server_output(timeout):
         rlist, _wlist, _xlist = select.select([sys.stdin], [], [], timeout)
         if not rlist:
             break
-        out = os.read(sys.stdin.fileno(), 10240)
+        out = os.read(sys.stdin.fileno(), 32 * 1024)
         if not out:
             break
         output.append(out)

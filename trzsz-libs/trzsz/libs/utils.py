@@ -27,6 +27,7 @@ import json
 import stat
 import time
 import zlib
+import errno
 import atexit
 import base64
 import select
@@ -54,6 +55,7 @@ class GlobalVariables:
         self.next_read_buffer = b''
         self.clean_timeout = 0.1
         self.max_chunk_time = 0
+        self.stopped = False
 
 
 GLOBAL = GlobalVariables()
@@ -221,15 +223,33 @@ class BufferSizeParser(argparse.Action):
         setattr(namespace, self.dest, buf_size)
 
 
+def is_eintr_error(err):
+    if hasattr(err, 'errno'):
+        err_no = err.errno
+    elif hasattr(err, '__getitem__') and len(err) > 0:
+        err_no = err[0]
+    else:
+        return False
+    return err_no == errno.EINTR
+
+
 def clean_input(timeout):
+    GLOBAL.stopped = True
     if IS_RUNNING_ON_WINDOWS:
         time.sleep(timeout)
         return
     while True:
-        rlist, _wlist, _xlist = select.select([sys.stdin], [], [], timeout)
-        if not rlist:
+        try:
+            rlist, _wlist, _xlist = select.select([sys.stdin], [], [], timeout)
+            if not rlist:
+                break
+            if not os.read(sys.stdin.fileno(), 32 * 1024):
+                break
+        except (OSError, select.error) as err:
+            if is_eintr_error(err):
+                continue
             break
-        if not os.read(sys.stdin.fileno(), 10240):
+        except:  # NOQA pylint:disable=bare-except
             break
 
 
@@ -252,7 +272,14 @@ def send_line(typ, buf):
 def read_buffer(size):
     if GLOBAL.next_read_buffer:
         return GLOBAL.next_read_buffer
-    buf = os.read(sys.stdin.fileno(), size)
+    while True:
+        try:
+            buf = os.read(sys.stdin.fileno(), size)
+            break
+        except (OSError, select.error) as err:
+            if is_eintr_error(err):
+                continue
+            raise
     if not buf:
         raise TrzszError('EndOfStdin', trace=False)
     return buf
@@ -261,7 +288,7 @@ def read_buffer(size):
 def read_line():
     buffer = []
     while True:
-        buf = read_buffer(10240)
+        buf = read_buffer(32 * 1024)
         new_line_idx = buf.find(b'\n')
         if new_line_idx >= 0:
             # +1 to ignroe the '\n'
@@ -316,7 +343,7 @@ def read_line_on_windows():  # pylint: disable=too-many-branches
     has_cursor_home = False
     pre_has_cursor_home = False
     while True:
-        buf = read_buffer(10240)
+        buf = read_buffer(32 * 1024)
         new_line_idx = buf.find(b'!')
         if new_line_idx >= 0:
             # +1 to ignroe the '\n'
@@ -358,6 +385,8 @@ def read_line_on_windows():  # pylint: disable=too-many-branches
 
 
 def recv_line(expect_typ, may_has_junk=False):
+    if GLOBAL.stopped:
+        raise TrzszError('Stopped', trace=False)
     if IS_RUNNING_ON_WINDOWS or GLOBAL.windows_protocol:
         line = read_line_on_windows()
         idx = line.rfind('#' + expect_typ + ':')
@@ -549,11 +578,15 @@ def recv_config():
 
 
 def stop_transferring():
+    if GLOBAL.stopped:
+        return
+    GLOBAL.stopped = True
     GLOBAL.clean_timeout = max(GLOBAL.max_chunk_time * 2, 0.5)
     os.kill(os.getpid(), signal.SIGINT)
 
 
 def terminate(_signum, _frame):
+    GLOBAL.stopped = True
     raise TrzszError('Terminated', trace=False)
 
 
@@ -561,6 +594,7 @@ signal.signal(signal.SIGTERM, terminate)
 
 
 def interrupte(_signum, _frame):
+    GLOBAL.stopped = True
     raise TrzszError('Stopped', trace=False)
 
 
@@ -744,7 +778,14 @@ def send_file_data(file, size, callback):
     md5 = hashlib.md5()
     while step < size:
         begin_time = time.time()
-        data = file.read(buf_size)
+        while True:
+            try:
+                data = file.read(buf_size)
+                break
+            except (OSError, select.error) as err:
+                if is_eintr_error(err):
+                    continue
+                raise
         length = len(data)
         send_data(data)
         md5.update(data)
