@@ -157,7 +157,7 @@ def download_files(args, loop, connection, session, remote_is_windows):
 
     local_list = transfer.recv_files(dest_path, callback)
 
-    transfer.client_exit(f'Saved {", ".join(local_list)} to {dest_path}')
+    transfer.client_exit(utils.format_saved_files(local_list, dest_path))
 
 
 class GlobalVariables:
@@ -197,7 +197,7 @@ def upload_files(args, loop, connection, session, directory, remote_is_windows):
 
     remote_list = transfer.send_files(file_list, callback)
 
-    transfer.client_exit(f'Received {", ".join(remote_list)}')
+    transfer.client_exit(utils.format_saved_files(remote_list, ''))
 
 
 async def keystroke_filter(connection, session):

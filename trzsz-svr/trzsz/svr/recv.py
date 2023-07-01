@@ -75,7 +75,7 @@ def recv_files(args, dest_path):
     local_list = transfer.recv_files(dest_path, None)
 
     _ = transfer.recv_exit()
-    transfer.server_exit('Received %s to %s' % (', '.join(local_list), dest_path))
+    transfer.server_exit(utils.format_saved_files(local_list, dest_path))
 
 
 def main():

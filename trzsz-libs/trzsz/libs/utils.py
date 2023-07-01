@@ -641,3 +641,10 @@ def reconfigure_stdin():
         sys.setdefaultencoding('latin1')
     except AttributeError:
         pass
+
+
+def format_saved_files(file_list, dest_path):
+    msg = 'Saved %d %s' % (len(file_list), 'files/directories' if len(file_list) > 1 else 'file/directory')
+    if dest_path:
+        msg += ' to ' + dest_path
+    return '\r\n- '.join([msg] + file_list)
