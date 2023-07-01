@@ -29,7 +29,7 @@ from trzsz.libs import transfer
 from trzsz.svr.__version__ import __version__
 
 
-def parse_args(args):
+def parse_args(sys_args):
     parser = argparse.ArgumentParser(description='Receive file(s), similar to rz and compatible with tmux.',
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v', '--version', action='version', version='%(prog)s (trzsz) py ' + __version__)
@@ -38,6 +38,7 @@ def parse_args(args):
     parser.add_argument('-b', '--binary', action='store_true', help='binary transfer mode, faster for binary files')
     parser.add_argument('-e', '--escape', action='store_true', help='escape all known control characters')
     parser.add_argument('-d', '--directory', action='store_true', help='transfer directories and files')
+    parser.add_argument('-r', '--recursive', action='store_true', help='transfer directories and files, same as -d')
     parser.add_argument('-B',
                         '--bufsize',
                         min_size='1K',
@@ -53,7 +54,10 @@ def parse_args(args):
                         metavar='N',
                         help='timeout ( N seconds ) for each buffer chunk.\nN <= 0 means never timeout. (default: 20)')
     parser.add_argument('path', nargs='?', default='.', help='path to save file(s). (default: current directory)')
-    return parser.parse_args(args)
+    args = parser.parse_args(sys_args)
+    if args.recursive is True:
+        args.directory = True
+    return args
 
 
 def recv_files(args, dest_path):

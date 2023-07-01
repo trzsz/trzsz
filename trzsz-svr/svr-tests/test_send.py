@@ -72,6 +72,7 @@ class TestRecv(unittest.TestCase):
         self.assert_args_equal(['-b', 'a'], ['a'], binary=True)
         self.assert_args_equal(['-e', 'a'], ['a'], escape=True)
         self.assert_args_equal(['-d', 'a'], ['a'], directory=True)
+        self.assert_args_equal(['-r', 'a'], ['a'], directory=True)
         self.assert_args_equal(['-B', '2k', 'a'], ['a'], bufsize=2 * 1024)
         self.assert_args_equal(['-t', '3', 'a'], ['a'], timeout=3)
 
@@ -82,6 +83,7 @@ class TestRecv(unittest.TestCase):
         self.assert_args_equal(['--binary', 'a'], ['a'], binary=True)
         self.assert_args_equal(['--escape', 'a'], ['a'], escape=True)
         self.assert_args_equal(['--directory', 'a'], ['a'], directory=True)
+        self.assert_args_equal(['--recursive', 'a'], ['a'], directory=True)
         self.assert_args_equal(['--bufsize', '2M', 'a'], ['a'], bufsize=2 * 1024 * 1024)
         self.assert_args_equal(['--timeout', '55', 'a'], ['a'], timeout=55)
 
@@ -97,7 +99,7 @@ class TestRecv(unittest.TestCase):
     def test_combined_args(self):
         self.assert_args_equal(['-yq', 'a'], ['a'], quiet=True, overwrite=True)
         self.assert_args_equal(['-bed', 'a'], ['a'], binary=True, escape=True, directory=True)
-        self.assert_args_equal(['-yB', '2096', 'a'], ['a'], overwrite=True, bufsize=2096)
+        self.assert_args_equal(['-yrB', '2096', 'a'], ['a'], overwrite=True, directory=True, bufsize=2096)
         self.assert_args_equal(['-ebt300', 'a'], ['a'], escape=True, binary=True, timeout=300)
         self.assert_args_equal(['-yqB3K', '-eb', '-t', '9', '-d', 'a'], ['a'],
                                quiet=True,
