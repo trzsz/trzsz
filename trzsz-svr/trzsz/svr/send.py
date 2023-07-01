@@ -24,6 +24,7 @@ import sys
 import time
 import argparse
 from trzsz.libs import utils
+from trzsz.libs import transfer
 from trzsz.svr.__version__ import __version__
 
 
@@ -55,10 +56,10 @@ def parse_args(args):
 
 
 def send_files(args, file_list):
-    action = utils.recv_action()
+    action = transfer.recv_action()
 
     if not action.get('confirm', False):
-        utils.server_exit('Cancelled')
+        transfer.server_exit('Cancelled')
         return
 
     # check if the client doesn't support binary mode
@@ -68,11 +69,11 @@ def send_files(args, file_list):
     if args.directory and action.get('support_dir') is not True:
         raise utils.TrzszError("The client doesn't support transfer directory", trace=False)
 
-    utils.send_config(args, action, [])
+    transfer.send_config(args, action, [])
 
-    utils.send_files(file_list, None)
+    transfer.send_files(file_list, None)
 
-    utils.server_exit(utils.recv_exit())
+    transfer.server_exit(transfer.recv_exit())
 
 
 def main():
@@ -115,7 +116,7 @@ def main():
         send_files(args, file_list)
 
     except Exception as ex:
-        utils.server_error(ex)
+        transfer.server_error(ex)
 
 
 if __name__ == '__main__':

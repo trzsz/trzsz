@@ -32,6 +32,7 @@ import threading
 import subprocess
 import iterm2
 from trzsz.libs import utils
+from trzsz.libs import transfer
 from trzsz.iterm2.__version__ import __version__
 from trzsz.iterm2.text_progress import TextProgressBar
 from trzsz.iterm2.zenity_progress import ZenityProgressBar
@@ -137,15 +138,15 @@ def download_files(args, loop, connection, session, remote_is_windows):
     dest_path = args.destpath or choose_download_path(loop, connection)
 
     if not dest_path:
-        utils.send_action(False, __version__, remote_is_windows)
+        transfer.send_action(False, __version__, remote_is_windows)
         return
 
     utils.check_path_writable(dest_path)
 
     utils.reconfigure_stdin()
 
-    utils.send_action(True, __version__, remote_is_windows)
-    config = utils.recv_config()
+    transfer.send_action(True, __version__, remote_is_windows)
+    config = transfer.recv_config()
 
     callback = None
     if not config.quiet:
@@ -154,9 +155,9 @@ def download_files(args, loop, connection, session, remote_is_windows):
         else:
             callback = ZenityProgressBar('Download')
 
-    local_list = utils.recv_files(dest_path, callback)
+    local_list = transfer.recv_files(dest_path, callback)
 
-    utils.client_exit(f'Saved {", ".join(local_list)} to {dest_path}')
+    transfer.client_exit(f'Saved {", ".join(local_list)} to {dest_path}')
 
 
 class GlobalVariables:
@@ -175,14 +176,14 @@ def upload_files(args, loop, connection, session, directory, remote_is_windows):
     else:
         paths = choose_upload_paths(loop, connection, directory)
         if not paths:
-            utils.send_action(False, __version__, remote_is_windows)
+            transfer.send_action(False, __version__, remote_is_windows)
             return
         file_list = utils.check_paths_readable(paths, directory)
 
     utils.reconfigure_stdin()
 
-    utils.send_action(True, __version__, remote_is_windows)
-    config = utils.recv_config()
+    transfer.send_action(True, __version__, remote_is_windows)
+    config = transfer.recv_config()
 
     if config.overwrite is True:
         utils.check_duplicate_names(file_list)
@@ -194,9 +195,9 @@ def upload_files(args, loop, connection, session, directory, remote_is_windows):
         else:
             callback = ZenityProgressBar('Upload')
 
-    remote_list = utils.send_files(file_list, callback)
+    remote_list = transfer.send_files(file_list, callback)
 
-    utils.client_exit(f'Received {", ".join(remote_list)}')
+    transfer.client_exit(f'Received {", ".join(remote_list)}')
 
 
 async def keystroke_filter(connection, session):
@@ -384,7 +385,7 @@ def main():
             raise utils.TrzszError(f'Unknown transfer mode: {mode}', trace=False)
 
     except Exception as ex:
-        utils.client_error(ex)
+        transfer.client_error(ex)
 
 
 if __name__ == '__main__':

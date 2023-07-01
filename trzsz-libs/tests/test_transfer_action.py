@@ -24,6 +24,7 @@ import io
 import platform
 import unittest
 from .trzsz.libs import utils
+from .trzsz.libs import transfer
 
 
 class TestTransferAction(unittest.TestCase):
@@ -39,7 +40,7 @@ class TestTransferAction(unittest.TestCase):
     def test_action_compatible(self):
         utils.GLOBAL.next_read_buffer = b'#ACT:eJw0ykEKwkAMQNG7/HUojMucRZBaxxIYkyGdKiLe3YV0+3gf' + \
             b'2uwryhoIz5qbhaOUqUwFYQm/Wz7QkXsVvL6aeUU5O0LPGLFEQ0/C1XzO9zG3vffIcblZ/un7CwAA//8fnSN6\n'
-        action = utils.recv_action()
+        action = transfer.recv_action()
         self.assertEqual(
             {
                 'binary': True,
@@ -57,14 +58,14 @@ class TestTransferAction(unittest.TestCase):
         utils.IS_RUNNING_ON_WINDOWS = False
         stdout = io.StringIO()
         utils.GLOBAL.trzsz_writer = stdout
-        utils.send_action(True, '1.0.0', False)
+        transfer.send_action(True, '1.0.0', False)
         self.assertIn('#ACT:', stdout.getvalue())
         self.assertFalse(utils.GLOBAL.windows_protocol)
         self.assertEqual('\n', utils.CONFIG.newline)
 
         utils.IS_RUNNING_ON_WINDOWS = False
         utils.GLOBAL.next_read_buffer = stdout.getvalue().encode('utf8')
-        action = utils.recv_action()
+        action = transfer.recv_action()
         self.assertEqual('\n', action.get('newline', '\n'))
         self.assertTrue(action.get('binary', True))
         self.assertFalse(utils.GLOBAL.windows_protocol)
@@ -75,14 +76,14 @@ class TestTransferAction(unittest.TestCase):
         utils.IS_RUNNING_ON_WINDOWS = True
         stdout = io.StringIO()
         utils.GLOBAL.trzsz_writer = stdout
-        utils.send_action(True, '1.0.0', False)
+        transfer.send_action(True, '1.0.0', False)
         self.assertIn('#ACT:', stdout.getvalue())
         self.assertFalse(utils.GLOBAL.windows_protocol)
         self.assertEqual('\n', utils.CONFIG.newline)
 
         utils.IS_RUNNING_ON_WINDOWS = False
         utils.GLOBAL.next_read_buffer = stdout.getvalue().encode('utf8')
-        action = utils.recv_action()
+        action = transfer.recv_action()
         self.assertEqual('!\n', action.get('newline', '\n'))
         self.assertFalse(action.get('binary', True))
         self.assertFalse(utils.GLOBAL.windows_protocol)
@@ -93,14 +94,14 @@ class TestTransferAction(unittest.TestCase):
         utils.IS_RUNNING_ON_WINDOWS = False
         stdout = io.StringIO()
         utils.GLOBAL.trzsz_writer = stdout
-        utils.send_action(True, '1.0.0', True)
+        transfer.send_action(True, '1.0.0', True)
         self.assertIn('#ACT:', stdout.getvalue())
         self.assertTrue(utils.GLOBAL.windows_protocol)
         self.assertEqual('!\n', utils.CONFIG.newline)
 
         utils.IS_RUNNING_ON_WINDOWS = True
         utils.GLOBAL.next_read_buffer = stdout.getvalue().encode('utf8')
-        action = utils.recv_action()
+        action = transfer.recv_action()
         self.assertEqual('!\n', action.get('newline', '\n'))
         self.assertFalse(action.get('binary', True))
         self.assertTrue(utils.IS_RUNNING_ON_WINDOWS or utils.GLOBAL.windows_protocol)
@@ -111,14 +112,14 @@ class TestTransferAction(unittest.TestCase):
         utils.IS_RUNNING_ON_WINDOWS = True
         stdout = io.StringIO()
         utils.GLOBAL.trzsz_writer = stdout
-        utils.send_action(True, '1.0.0', True)
+        transfer.send_action(True, '1.0.0', True)
         self.assertIn('#ACT:', stdout.getvalue())
         self.assertTrue(utils.GLOBAL.windows_protocol)
         self.assertEqual('!\n', utils.CONFIG.newline)
 
         utils.IS_RUNNING_ON_WINDOWS = True
         utils.GLOBAL.next_read_buffer = stdout.getvalue().encode('utf8')
-        action = utils.recv_action()
+        action = transfer.recv_action()
         self.assertEqual('!\n', action.get('newline', '\n'))
         self.assertFalse(action.get('binary', True))
         self.assertTrue(utils.IS_RUNNING_ON_WINDOWS or utils.GLOBAL.windows_protocol)

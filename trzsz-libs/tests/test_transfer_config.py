@@ -26,6 +26,7 @@ import json
 import platform
 import unittest
 from .trzsz.libs import utils
+from .trzsz.libs import transfer
 
 
 class TestArgs():
@@ -56,9 +57,10 @@ class TestTransferConfig(unittest.TestCase):
         escape_chars = utils.get_escape_chars(True)
         if sys.version_info < (3, ):
             escape_chars = json.loads(json.dumps(escape_chars, encoding='latin1'), encoding='latin1')
+        utils.PROTOCOL_VERSION = 2
         utils.CONFIG.tmux_pane_width = 88
         utils.GLOBAL.tmux_mode = utils.TMUX_NORMAL_MODE
-        utils.send_config(args, action, escape_chars)
+        transfer.send_config(args, action, escape_chars)
         self.assertIn('#CFG:', stdout.getvalue())
         config = {
             'quiet': True,
@@ -77,7 +79,7 @@ class TestTransferConfig(unittest.TestCase):
 
         def assert_config_equal(cfg_str):
             utils.GLOBAL.next_read_buffer = cfg_str.encode('utf8')
-            self.assertEqual(config, utils.recv_config().__dict__)
+            self.assertEqual(config, transfer.recv_config().__dict__)
             self.assertEqual(config, utils.CONFIG.__dict__)
         cfg_str = '#CFG:eJxEz81SwzAMBOB32bMPToZD8Y2/pwiZjJOI1tBGwZEoPwPPzqTTyDftt7rsD/o0xfyFIFnJodeXJX0TQuXrG4cx' + \
             'ZRqES0/LEGfqhkPMC0LT4Fm9J4K7HtfYugZ/htUlr7evDe8MK294X7A3fCg4Gj4a3hZ8Qts6HOO0R8Ce4cAflM85CW0D5szCAx8' + \
