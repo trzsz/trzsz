@@ -34,36 +34,37 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 ### On the server
 
-* with Python3
+* Install [the Go version](https://github.com/trzsz/trzsz-go) ( ⭐ Recommended )
+
+  Please check the Go version installation guide: [https://github.com/trzsz/trzsz-go#installation](https://github.com/trzsz/trzsz-go#installation)
+
+* Or install with Python3
   ```
   sudo python3 -m pip install --upgrade trzsz
   ```
 
-* with Python2
+* Or install with Python2
   ```
   sudo python2 -m pip install --upgrade trzsz
   ```
 
-* with Homebrew
+* Or install with Homebrew
   ```
   brew update
   brew install trzsz
   ```
 
-* with Node.js
+* Or install with Node.js
   ```
   sudo npm install -g trzsz
   ```
-
-* or install trzsz written in Go
-
-  Check [https://github.com/trzsz/trzsz-go](https://github.com/trzsz/trzsz-go)
-
 
 &nbsp;&nbsp;Can be installed without `sudo`, just add the installation path ( e.g. `~/.local/bin` ) to the `PATH` environment.
 
 
 ### Supported Terminals
+
+* [trzsz-ssh](https://github.com/trzsz/trzsz-ssh) ( tssh ) -- simple ssh client with trzsz support ( ⭐ Recommended ).
 
 * [iTerm2](https://iterm2.com/) -- check [the trzsz-iterm2 installation](https://trzsz.github.io/iterm2).
 
@@ -99,6 +100,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
     -b, --binary       binary transfer mode, faster for binary files
     -e, --escape       escape all known control characters
     -d, --directory    transfer directories and files
+    -r, --recursive    transfer directories and files, same as -d
     -B N, --bufsize N  max buffer chunk size (1K<=N<=1G). (default: 10M)
     -t N, --timeout N  timeout ( N seconds ) for each buffer chunk.
                        N <= 0 means never timeout. (default: 20)
@@ -121,6 +123,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
     -b, --binary       binary transfer mode, faster for binary files
     -e, --escape       escape all known control characters
     -d, --directory    transfer directories and files
+    -r, --recursive    transfer directories and files, same as -d
     -B N, --bufsize N  max buffer chunk size (1K<=N<=1G). (default: 10M)
     -t N, --timeout N  timeout ( N seconds ) for each buffer chunk.
                        N <= 0 means never timeout. (default: 20)
@@ -174,4 +177,9 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 ## Contact
 
-Feel free to email me <lonnywong@qq.com>. Welcome to join the QQ group: 318578930.
+Feel free to email the author <lonnywong@qq.com>. Welcome to join the QQ group: 318578930.
+
+Want to buy the author a drink 🍺 ?
+
+![sponsor wechat qrcode](https://trzsz.github.io/images/sponsor_wechat.jpg)
+![sponsor alipay qrcode](https://trzsz.github.io/images/sponsor_alipay.jpg)
