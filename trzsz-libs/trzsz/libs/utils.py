@@ -385,6 +385,23 @@ def read_line_on_windows():  # pylint: disable=too-many-branches
             return b''.join(buffer).decode(encoding='latin1', errors='surrogateescape')
 
 
+def strip_tmux_status_line(buf):
+    while True:
+        begin_idx = buf.find('\x1bP=')
+        if begin_idx < 0:
+            return buf
+        buf_idx = begin_idx + 3
+        mid_idx = buf[buf_idx:].find('\x1bP=')
+        if mid_idx < 0:
+            return buf[:begin_idx]
+        buf_idx += mid_idx + 3
+        end_idx = buf[buf_idx:].find('\x1b\\')
+        if end_idx < 0:
+            return buf[:begin_idx]
+        buf_idx += end_idx + 2
+        buf = buf[:begin_idx] + buf[buf_idx:]
+
+
 def recv_line(expect_typ, may_has_junk=False):
     if GLOBAL.stopped:
         raise TrzszError('Stopped', trace=False)
@@ -402,6 +419,7 @@ def recv_line(expect_typ, may_has_junk=False):
         idx = line.rfind('#' + expect_typ + ':')
         if idx >= 0:
             line = line[idx:]
+        line = strip_tmux_status_line(line)
     return line
 
 
