@@ -1,16 +1,16 @@
-name: Trzsz Python Unit Test
+name: Trzsz Python2 Unit Test
 on: [push]
 jobs:
   unit-test-on-linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: ["2.7"]
     steps:
       - name: Checkout trzsz
         uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: MatteoH2O1999/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -24,12 +24,12 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: ["2.7"]
     steps:
       - name: Checkout trzsz
         uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: MatteoH2O1999/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -43,21 +43,18 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["2.7"]
     steps:
       - name: Checkout trzsz
         uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: MatteoH2O1999/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           cd trzsz-libs && python setup.py install && cd -
-          python -m pip install --upgrade iterm2
       - name: Run unit test for trzsz-libs
         run: python -m unittest discover trzsz-libs
       - name: Run unit test for trzsz-svr
         run: python -m unittest discover trzsz-svr
-      - name: Run unit test for trzsz-iterm2
-        run: python -m unittest discover trzsz-iterm2

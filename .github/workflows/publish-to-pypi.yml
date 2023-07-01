@@ -10,11 +10,11 @@ jobs:
       trzsz_version: ${{ steps.trzsz_version.outputs.version_number }}
     steps:
       - name: Checkout trzsz
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.11"
       - name: Install Python Dependencies
         run: python3 -m pip install --upgrade setuptools wheel
       - name: Get trzsz version
@@ -59,9 +59,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: MatteoH2O1999/setup-python@v1
         with:
-          python-version: '2.7'
+          python-version: "2.7"
       - name: Wait 10 minute
         run: sleep 600
       - name: Install trzsz
@@ -76,9 +76,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: "3.7"
       - name: Wait 10 minute
         run: sleep 600
       - name: Install trzsz
@@ -93,9 +93,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: "3.7"
       - name: Wait 10 minute
         run: sleep 600
       - name: Install trzsz with iterm2
