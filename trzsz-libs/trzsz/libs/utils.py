@@ -101,8 +101,9 @@ else:
     import termios
 
     def set_stdin_raw():
-        GLOBAL.stdin_old_tty = termios.tcgetattr(sys.stdin.fileno())
-        tty.setraw(sys.stdin.fileno(), termios.TCSANOW)
+        if os.isatty(sys.stdin.fileno()):
+            GLOBAL.stdin_old_tty = termios.tcgetattr(sys.stdin.fileno())
+            tty.setraw(sys.stdin.fileno(), termios.TCSANOW)
 
     def reset_stdin_tty():
         if GLOBAL.stdin_old_tty:
@@ -410,6 +411,10 @@ def recv_line(expect_typ, may_has_junk=False):
         idx = line.rfind('#' + expect_typ + ':')
         if idx >= 0:
             line = line[idx:]
+        else:
+            idx = line.rfind('#')
+            if idx > 0:
+                line = line[idx:]
         return line
     line = read_line()
     if CONFIG.tmux_output_junk or may_has_junk:
@@ -419,6 +424,10 @@ def recv_line(expect_typ, may_has_junk=False):
         idx = line.rfind('#' + expect_typ + ':')
         if idx >= 0:
             line = line[idx:]
+        else:
+            idx = line.rfind('#')
+            if idx > 0:
+                line = line[idx:]
         line = strip_tmux_status_line(line)
     return line
 
