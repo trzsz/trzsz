@@ -2,11 +2,10 @@
 
 `trzsz` ( trz / tsz ) is a simple file transfer tools, similar to `lrzsz` ( rz / sz ), and compatible with `tmux`.
 
-Website: [https://trzsz.github.io](https://trzsz.github.io)
+Website: [https://trzsz.github.io](https://trzsz.github.io) 　中文文档：[https://trzsz.github.io/cn](https://trzsz.github.io/cn/)
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](https://choosealicense.com/licenses/mit/)
 [![PyPI trzsz](https://img.shields.io/pypi/v/trzsz?style=flat)](https://pypi.python.org/pypi/trzsz/)
-[![中文网站](https://img.shields.io/badge/%E4%B8%AD%E6%96%87-%E7%BD%91%E7%AB%99-blue?style=flat)](https://trzsz.github.io/cn/)
 
 ## Why?
 
@@ -20,6 +19,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 - Support **tmux**, including tmux normal mode, and tmux command mode integrated with iTerm2.
 - Support **transfer directories**, `trz -d` to upload directories, `tsz -d xxx` to download xxx directories.
+- Support **breakpoint resume**, `trz -y` or `tsz -y xxx` overwrite exiting files will auto resume from breakpoint.
 - Support **Windows server**, not only can run on Windows client, but also can run on Windows ssh server.
 - Support **native terminal**, does not require terminal to support, just use `trzsz ssh x.x.x.x` to login.
 - Support **web terminal**, transfer files and directories between local and remote servers over the web.
@@ -33,7 +33,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 - Install [the Go version](https://github.com/trzsz/trzsz-go) ( ⭐ Recommended )
 
-  Please check the Go version installation guide: [https://github.com/trzsz/trzsz-go#installation](https://github.com/trzsz/trzsz-go#installation)
+  Please check the Go version installation guide: [https://trzsz.github.io/go](https://trzsz.github.io/go)
 
 - Or install with Python3
 
@@ -63,7 +63,7 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 ### Supported Terminals
 
-- [trzsz-ssh](https://github.com/trzsz/trzsz-ssh) ( tssh ) -- simple ssh client with trzsz support ( ⭐ Recommended ).
+- [trzsz-ssh](https://trzsz.github.io/ssh) ( tssh ) -- simple ssh client with trzsz support ( ⭐ Recommended ).
 
 - [iTerm2](https://iterm2.com/) -- check [the trzsz-iterm2 installation](https://trzsz.github.io/iterm2).
 
@@ -73,9 +73,9 @@ In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's n
 
 - [ttyd](https://github.com/tsl0922/ttyd) -- upgrade to `1.7.3` or higher, and start with `-t enableTrzsz=true`, use `https` unless localhost.
 
-- [trzsz-go](https://github.com/trzsz/trzsz-go) -- supports all terminals that support a local shell.
+- [trzsz-go](https://trzsz.github.io/go) -- supports all terminals that support a local shell.
 
-- [trzsz.js](https://github.com/trzsz/trzsz.js) -- making webshell in browser and electron terminal supports `trzsz`.
+- [trzsz.js](https://trzsz.github.io/js) -- making webshell in browser and electron terminal supports `trzsz`.
 
 &nbsp;&nbsp;_Does your terminal supports `trzsz` as well? Please let me know. I would love to have it on the list._
 
@@ -196,7 +196,7 @@ optional arguments:
 
 ## Contact
 
-Feel free to email the author <lonnywong@qq.com>. Welcome to join the QQ group: 318578930.
+Feel free to email the author <lonnywong@qq.com>, or create an [issue](https://github.com/trzsz/trzsz/issues). Welcome to join the QQ group: 318578930.
 
 Want to buy the author a drink 🍺 ?
 
