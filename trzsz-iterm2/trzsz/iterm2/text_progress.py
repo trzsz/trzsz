@@ -134,12 +134,11 @@ class TextProgressBar(utils.TrzszCallback):  # pylint: disable=too-many-instance
         self._show_progress()
 
     def on_done(self):
-        if not self.first_write:
-            if self.tmux_pane_width > 0:
-                self._inject_to_iterm2(f'\x1b[{self.columns}D')
-            else:
-                self._inject_to_iterm2('\r')
-            self.first_write = True
+        if self.size == 0:
+            return
+        self.step = self.size
+        self.update_time = 0
+        self._show_progress()
 
     def _show_progress(self):
         now = time.time()

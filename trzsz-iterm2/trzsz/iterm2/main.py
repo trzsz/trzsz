@@ -153,7 +153,7 @@ def download_files(args, loop, connection, session, remote_is_windows):
         if args.progress == ProgressType.TEXT and loop and session:
             callback = TextProgressBar(loop, session, config.tmux_pane_width)
         else:
-            callback = ZenityProgressBar('Download')
+            callback = ZenityProgressBar('Downloading')
 
     local_list = transfer.recv_files(dest_path, callback)
 
@@ -193,7 +193,7 @@ def upload_files(args, loop, connection, session, directory, remote_is_windows):
         if args.progress == ProgressType.TEXT and loop and session:
             callback = TextProgressBar(loop, session, config.tmux_pane_width)
         else:
-            callback = ZenityProgressBar('Upload')
+            callback = ZenityProgressBar('Uploading')
 
     remote_list = transfer.send_files(file_list, callback)
 

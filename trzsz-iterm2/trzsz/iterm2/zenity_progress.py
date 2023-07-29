@@ -54,7 +54,7 @@ class ZenityProgressBar(utils.TrzszCallback):
 
     def _update_progress(self, step):
         percentage = step * 100 // self.size if self.size else 0
-        progress = f'{percentage}\n# {self.action}ing {self.name} {percentage}% ( {self.idx} / {self.num} ) ...\n'
+        progress = f'{percentage}\n# {self.action} ( {self.idx} / {self.num} ) {percentage}% {self.name}\n'
         if progress == self.progress:
             return
         self.progress = progress
@@ -88,8 +88,7 @@ class ZenityProgressBar(utils.TrzszCallback):
         if not self.proc:
             return
         try:
-            self.proc.stdin.write(f'# {self.action} {self.name} finished.\n'.encode('utf8'))
-            self.proc.stdin.flush()
+            self._update_progress(self.size)
         except EnvironmentError:
             if self.idx < self.num:
                 utils.stop_transferring()

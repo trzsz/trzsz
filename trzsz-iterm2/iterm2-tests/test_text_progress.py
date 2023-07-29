@@ -245,7 +245,8 @@ class TestTextProgressBar(unittest.TestCase):
         self.assertEqual(self.mock_inject.call_count, 1)
         self.assertEqual('30%', self.mock_inject.call_args_list[0].args[0])
 
-    @unittest.mock.patch('time.time', side_effect=[1646564135, 1646564136, 1646564137, 1646564139])
+    @unittest.mock.patch('time.time',
+                         side_effect=[1646564135, 1646564136, 1646564136, 1646564137, 1646564139, 1646564139])
     def test_multiple_files(self, mock_time):
         self.tgb.on_num(2)
         self.tgb.on_name('中文😀test.txt')
@@ -254,21 +255,31 @@ class TestTextProgressBar(unittest.TestCase):
         self.tgb.on_done()
         self.tgb.on_name('英文😀test.txt')
         self.tgb.on_size(2000)
+        self.tgb.columns = 80
         self.tgb.on_step(300)
         self.tgb.on_done()
-        self.assertEqual(mock_time.call_count, 4)
+        self.assertEqual(mock_time.call_count, 6)
         self.assertEqual(self.mock_inject.call_count, 4)
         self.assertNotIn('\r', self.mock_inject.call_args_list[0].args[0])
+
         self.assertIn('(1/2) 中文😀test.txt [', self.mock_inject.call_args_list[0].args[0])
         self.assertIn('] 10% | 100 B | 100 B/s | 00:09 ETA', self.mock_inject.call_args_list[0].args[0])
         self.assertEqual(output_length(self.mock_inject.call_args_list[0].args[0]), 100)
-        self.assertEqual('\r', self.mock_inject.call_args_list[1].args[0])
+
+        self.assertIn('(1/2) 中文😀test.txt [', self.mock_inject.call_args_list[1].args[0])
+        self.assertIn('] 100% | 1000 B | 1000 B/s | 00:00 ETA', self.mock_inject.call_args_list[1].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[1].args[0]), 100)
+
         self.assertIn('(2/2) 英文😀test.txt [', self.mock_inject.call_args_list[2].args[0])
         self.assertIn('] 15% | 300 B | 150 B/s | 00:11 ETA', self.mock_inject.call_args_list[2].args[0])
-        self.assertEqual(output_length(self.mock_inject.call_args_list[2].args[0]), 100)
-        self.assertEqual('\r', self.mock_inject.call_args_list[3].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[2].args[0]), 80)
 
-    @unittest.mock.patch('time.time', side_effect=[1646564135, 1646564136, 1646564137, 1646564138, 1646564139])
+        self.assertIn('(2/2) 英文😀test.txt [', self.mock_inject.call_args_list[3].args[0])
+        self.assertIn('] 100% | 1000 B/s | 00:00 ETA', self.mock_inject.call_args_list[3].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[3].args[0]), 80)
+
+    @unittest.mock.patch(
+        'time.time', side_effect=[1646564135, 1646564136, 1646564137, 1646564137, 1646564138, 1646564139, 1646564139])
     def test_tmux_pane(self, mock_time):
         self.tgb = text_progress.TextProgressBar(self.loop, self.session, 80)
         # pylint: disable=protected-access
@@ -281,11 +292,13 @@ class TestTextProgressBar(unittest.TestCase):
         self.tgb.on_done()
         self.tgb.on_name('中文😀test2.txt')
         self.tgb.on_size(1000)
+        self.tgb.columns = 120
         self.tgb.on_step(300)
         self.tgb.on_done()
 
-        self.assertEqual(mock_time.call_count, 5)
+        self.assertEqual(mock_time.call_count, 7)
         self.assertEqual(self.mock_inject.call_count, 5)
+
         self.assertNotIn('\r', self.mock_inject.call_args_list[0].args[0])
         self.assertNotIn('\x1b[80D', self.mock_inject.call_args_list[0].args[0])
         self.assertIn('(1/2) 中文😀test.txt [', self.mock_inject.call_args_list[0].args[0])
@@ -298,15 +311,23 @@ class TestTextProgressBar(unittest.TestCase):
         self.assertIn('] 20% | 200 B | 100 B/s | 00:08 ETA', self.mock_inject.call_args_list[1].args[0])
         self.assertEqual(output_length(self.mock_inject.call_args_list[1].args[0]), 80)
 
+        self.assertNotIn('\r', self.mock_inject.call_args_list[2].args[0])
         self.assertIn('\x1b[80D', self.mock_inject.call_args_list[2].args[0])
+        self.assertIn('(1/2) 中文😀test.txt [', self.mock_inject.call_args_list[2].args[0])
+        self.assertIn('] 100% | 1000 B | 500 B/s | 00:00 ETA', self.mock_inject.call_args_list[2].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[2].args[0]), 80)
 
         self.assertNotIn('\r', self.mock_inject.call_args_list[3].args[0])
-        self.assertNotIn('\x1b[80D', self.mock_inject.call_args_list[3].args[0])
+        self.assertIn('\x1b[120D', self.mock_inject.call_args_list[3].args[0])
         self.assertIn('(2/2) 中文😀test2.txt [', self.mock_inject.call_args_list[3].args[0])
         self.assertIn('] 30% | 300 B | 300 B/s | 00:02 ETA', self.mock_inject.call_args_list[3].args[0])
-        self.assertEqual(output_length(self.mock_inject.call_args_list[3].args[0]), 80)
+        self.assertEqual(output_length(self.mock_inject.call_args_list[3].args[0]), 120)
 
-        self.assertIn('\x1b[80D', self.mock_inject.call_args_list[4].args[0])
+        self.assertNotIn('\r', self.mock_inject.call_args_list[4].args[0])
+        self.assertIn('\x1b[120D', self.mock_inject.call_args_list[4].args[0])
+        self.assertIn('(2/2) 中文😀test2.txt [', self.mock_inject.call_args_list[4].args[0])
+        self.assertIn('] 100% | 1000 B | 1000 B/s | 00:00 ETA', self.mock_inject.call_args_list[4].args[0])
+        self.assertEqual(output_length(self.mock_inject.call_args_list[4].args[0]), 120)
 
 
 if __name__ == '__main__':
