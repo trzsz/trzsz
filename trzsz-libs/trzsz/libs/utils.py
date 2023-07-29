@@ -635,6 +635,7 @@ def check_duplicate_names(files):
 def check_tmux():
     if 'TMUX' not in os.environ:
         return NO_TMUX_MODE
+
     out = subprocess.check_output(
         ['tmux', 'display-message', '-p', '#{client_tty}:#{client_control_mode}:#{pane_width}'])
     output = out.decode('utf8').strip()
@@ -642,14 +643,35 @@ def check_tmux():
     if len(tokens) != 3:
         raise TrzszError('tmux unexpect output: %s' % output)
     tmux_tty, control_mode, pane_width = tokens
+
     if control_mode == '1' or (not tmux_tty.startswith('/')) or (not os.path.exists(tmux_tty)):
         GLOBAL.tmux_mode = TMUX_CONTROL_MODE
         return TMUX_CONTROL_MODE
+
     GLOBAL.trzsz_writer = open(tmux_tty, 'w')  # pylint: disable=consider-using-with
     if pane_width:
         CONFIG.tmux_pane_width = int(pane_width)
     GLOBAL.tmux_mode = TMUX_NORMAL_MODE
+
+    status_interval = get_tmux_status_interval()
+    set_tmux_status_interval('0')
+    atexit.register(set_tmux_status_interval, status_interval)
+
     return TMUX_NORMAL_MODE
+
+
+def get_tmux_status_interval():
+    out = subprocess.check_output(['tmux', 'display-message', '-p', '#{status-interval}'])
+    output = out.decode('utf8').strip()
+    if not output:
+        return '15'  # The default is 15 seconds
+    return output
+
+
+def set_tmux_status_interval(interval):
+    if not interval:
+        interval = '15'  # The default is 15 seconds
+    subprocess.check_output(['tmux', 'setw', 'status-interval', interval])
 
 
 def get_columns():
