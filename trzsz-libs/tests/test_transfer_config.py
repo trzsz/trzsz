@@ -81,9 +81,10 @@ class TestTransferConfig(unittest.TestCase):
             utils.GLOBAL.next_read_buffer = cfg_str.encode('utf8')
             self.assertEqual(config, transfer.recv_config().__dict__)
             self.assertEqual(config, utils.CONFIG.__dict__)
-        cfg_str = '#CFG:eJxEz81SwzAMBOB32bMPToZD8Y2/pwiZjJOI1tBGwZEoPwPPzqTTyDftt7rsD/o0xfyFIFnJodeXJX0TQuXrG4cx' + \
-            'ZRqES0/LEGfqhkPMC0LT4Fm9J4K7HtfYugZ/htUlr7evDe8MK294X7A3fCg4Gj4a3hZ8Qts6HOO0R8Ce4cAflM85CW0D5szCAx8' + \
-            'Raod3TSRbI+lErLJOd5CTfnasMqt0rzq92dPqc5yoO6dRDgi73e9/AAAA///Z02Vj\n'
+        cfg_str = '#CFG:eJxN0ctOwzAQBdBfibzuwgldhO54teXRLwhR5CQDdR+xccaUtoJvZ0KDZna+R1f2yHNWO9O9q1mi/FFNElXbzoQj' + \
+            'ZQwRKPvg0DVuR5JRxH38qlxEH7HaxG7LxY9oATlC3xgPVbM2oSctCvUatQYY3ricxlxOkkL9MKcXGYLOmG9GDky33Ew1853glPl' + \
+            'e8BXzg+CceS64Zl4IbpmXzLngR+ZrMeCTYDHgs2Ax4ItgcfdKleX/PrzpoDrYFtf003k+sN0DbYliqim2NkCDTu61jm+9PcFfI5' + \
+            'sSuE8Ih2ARxs73L+eXlsk=\n'
         assert_config_equal(cfg_str)
         assert_config_equal(stdout.getvalue())
 

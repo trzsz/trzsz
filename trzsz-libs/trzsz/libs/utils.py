@@ -491,7 +491,7 @@ def check_binary(expect):
 def get_escape_chars(escape_all):
     escape_chars = [['\xee', '\xee\xee'], ['\x7e', '\xee\x31']]
     if escape_all:
-        for i, char in enumerate('\x02\x10\x1b\x1d\x9d'):
+        for i, char in enumerate('\x02\x0d\x10\x11\x13\x18\x1b\x1d\x8d\x90\x91\x93\x9d'):
             escape_chars.append([char, '\xee' + chr(0x41 + i)])
     return escape_chars
 
