@@ -429,7 +429,7 @@ def recv_line(expect_typ, may_has_junk=False):
             if idx > 0:
                 line = line[idx:]
         line = strip_tmux_status_line(line)
-    return line
+    return line.strip('\x00')
 
 
 def recv_check(expect_typ, may_has_junk=False):
