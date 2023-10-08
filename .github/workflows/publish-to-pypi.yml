@@ -56,10 +56,10 @@ jobs:
   test-python2:
     name: Install trzsz with Python2
     needs: build-and-publish
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Set up Python
-        uses: MatteoH2O1999/setup-python@v1
+        uses: MatteoH2O1999/setup-python@v2
         with:
           python-version: "2.7"
       - name: Wait 10 minute

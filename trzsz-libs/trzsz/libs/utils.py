@@ -31,6 +31,7 @@ import errno
 import atexit
 import base64
 import select
+import shutil
 import signal
 import argparse
 import platform
@@ -57,6 +58,7 @@ class GlobalVariables:
         self.clean_timeout = 0.1
         self.max_chunk_time = 0
         self.stopped = False
+        self.created_files = []
 
 
 GLOBAL = GlobalVariables()
@@ -155,6 +157,11 @@ class TrzszError(Exception):
 
     def is_remote_fail(self):
         return self.typ in ('fail', 'FAIL')
+
+    def is_stop_and_delete(self):
+        if self.typ != 'fail':
+            return False
+        return self.msg == 'Stopped and deleted'
 
     def __str__(self):
         return self.msg
@@ -384,6 +391,10 @@ def read_line_on_windows():  # pylint: disable=too-many-branches
                 has_new_line = False
         if new_line_idx >= 0 and len(buffer) > 0 and not skip_vt100:
             return b''.join(buffer).decode(encoding='latin1', errors='surrogateescape')
+
+
+def tmux_refresh_client():
+    subprocess.call(['tmux', 'refresh-client'])
 
 
 def strip_tmux_status_line(buf):
@@ -697,3 +708,23 @@ def format_saved_files(file_list, dest_path):
     if dest_path:
         msg += ' to ' + dest_path
     return '\r\n- '.join([msg] + file_list)
+
+
+def add_created_files(path):
+    GLOBAL.created_files.append(path)
+
+
+def delete_created_files():
+    deleted_files = []
+    for path in GLOBAL.created_files:
+        if not os.path.exists(path):
+            continue
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+            deleted_files.append(path)
+        except OSError:
+            pass
+    return deleted_files

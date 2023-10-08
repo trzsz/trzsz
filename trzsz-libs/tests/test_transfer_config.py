@@ -45,9 +45,13 @@ class TestTransferConfig(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None  # pylint: disable=invalid-name
         utils.IS_RUNNING_ON_WINDOWS = False  # test as on Linux
+        self.protocol_version = utils.PROTOCOL_VERSION
 
     def tearDown(self):
         utils.IS_RUNNING_ON_WINDOWS = platform.system() == 'Windows'
+        utils.PROTOCOL_VERSION = self.protocol_version
+        utils.CONFIG = utils.TransferConfig()
+        utils.GLOBAL = utils.GlobalVariables()
 
     def test_transfer_config(self):
         stdout = io.StringIO()

@@ -34,8 +34,8 @@ class TestTransferAction(unittest.TestCase):
 
     def tearDown(self):
         utils.IS_RUNNING_ON_WINDOWS = platform.system() == 'Windows'
-        utils.CONFIG.newline = '\n'  # reset default newline
-        utils.GLOBAL.windows_protocol = False  # reset default windows protocol
+        utils.CONFIG = utils.TransferConfig()
+        utils.GLOBAL = utils.GlobalVariables()
 
     def test_action_compatible(self):
         utils.GLOBAL.next_read_buffer = b'#ACT:eJw0ykEKwkAMQNG7/HUojMucRZBaxxIYkyGdKiLe3YV0+3gf' + \

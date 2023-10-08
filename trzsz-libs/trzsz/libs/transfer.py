@@ -100,6 +100,8 @@ def server_exit(msg):
         sys.stdout.write('\x1b8\x1b[0J')
     sys.stdout.write(msg)
     sys.stdout.write('\r\n')
+    if utils.CONFIG.tmux_output_junk:
+        utils.tmux_refresh_client()
 
 
 def client_error(ex):
@@ -124,6 +126,11 @@ def server_error(ex):
     err_msg = utils.TrzszError.get_err_msg(ex)
     trace = True
     if isinstance(ex, utils.TrzszError):
+        if ex.is_stop_and_delete():
+            deleted_files = utils.delete_created_files()
+            if deleted_files:
+                server_exit('\r\n- '.join([ex.msg + ':'] + deleted_files))
+                return
         trace = ex.trace_back()
         if ex.is_remote_exit() or ex.is_remote_fail():
             server_exit(err_msg)
@@ -245,7 +252,9 @@ def get_new_name(path, name):
 
 def do_create_file(path):
     try:
-        return open(path, 'wb')
+        file = open(path, 'wb')  # pylint: disable=consider-using-with
+        utils.add_created_files(path)
+        return file
     except IOError as ex:
         if ex.errno == 21 or (utils.IS_RUNNING_ON_WINDOWS and os.path.isdir(path)):
             err_msg = 'Is a directory: %s' % path
@@ -258,7 +267,12 @@ def do_create_file(path):
 
 def do_create_directory(path):
     if not os.path.exists(path):
-        os.makedirs(path, 0o755)
+        try:
+            os.makedirs(path, 0o755)
+            utils.add_created_files(path)
+            return
+        except OSError:
+            raise utils.TrzszError("Fail to create directory: %s" % path, trace=False)
     if not os.path.isdir(path):
         raise utils.TrzszError('Not a directory: %s' % path, trace=False)
 
