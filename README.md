@@ -198,7 +198,6 @@ optional arguments:
 
 Feel free to email the author <lonnywong@qq.com>, or create an [issue](https://github.com/trzsz/trzsz/issues). Welcome to join the QQ group: 318578930.
 
-Want to buy the author a drink 🍺 ?
+## Sponsor
 
-![sponsor wechat qrcode](https://trzsz.github.io/images/sponsor_wechat.jpg)
-![sponsor alipay qrcode](https://trzsz.github.io/images/sponsor_alipay.jpg)
+[❤️ Sponsor trzsz ❤️](https://github.com/trzsz), buy the author a drink 🍺 ? Thank you for your support!
