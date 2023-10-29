@@ -46,7 +46,7 @@ def send_action(confirm, version, remote_is_windows):
 
 
 def recv_action():
-    action = utils.recv_json('ACT')
+    action = utils.recv_json('ACT', True)
     if 'newline' in action:
         utils.CONFIG.newline = action['newline']
     return action
@@ -69,6 +69,7 @@ def send_config(args, action, escape_chars):
         config['overwrite'] = True
     if utils.GLOBAL.tmux_mode == utils.TMUX_NORMAL_MODE:
         config['tmux_output_junk'] = True
+    if utils.CONFIG.tmux_pane_width > 0:
         config['tmux_pane_width'] = utils.CONFIG.tmux_pane_width
     if 'protocol' in action:
         config['protocol'] = min(action['protocol'], utils.PROTOCOL_VERSION)

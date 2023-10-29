@@ -655,13 +655,14 @@ def check_tmux():
         raise TrzszError('tmux unexpect output: %s' % output)
     tmux_tty, control_mode, pane_width = tokens
 
+    if pane_width:
+        CONFIG.tmux_pane_width = int(pane_width)
+
     if control_mode == '1' or (not tmux_tty.startswith('/')) or (not os.path.exists(tmux_tty)):
         GLOBAL.tmux_mode = TMUX_CONTROL_MODE
         return TMUX_CONTROL_MODE
 
     GLOBAL.trzsz_writer = open(tmux_tty, 'w')  # pylint: disable=consider-using-with
-    if pane_width:
-        CONFIG.tmux_pane_width = int(pane_width)
     GLOBAL.tmux_mode = TMUX_NORMAL_MODE
 
     status_interval = get_tmux_status_interval()

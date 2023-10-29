@@ -313,7 +313,7 @@ def drag_files_to_upload(file_paths, loop, session):
         sys.stdout.flush()
 
         for _ in range(20):
-            output = read_server_output(0.05)
+            output = read_server_output(0.15)
             idx = output.find(b'\n')
             if idx > 0 and output[:idx].rstrip() in (b'trz', b'trz -d'):
                 output = b'\r\n' + output[idx + 1:]
