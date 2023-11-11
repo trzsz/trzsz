@@ -134,12 +134,14 @@ optional arguments:
 - If `tmux` is running on the local computer.
 
   - Option 1: Use `tmux -CC` integration with iTerm2, please refer to [iTerm2 tmux Integration](https://trzsz.github.io/tmuxcc).
-  - Option 2: Install [trzsz-go](https://github.com/trzsz/trzsz-go) on the local computer, use `trzsz ssh` to login after `tmux`.
+  - Option 2: Install [trzsz-go](https://trzsz.github.io/go) on the local computer, use `trzsz ssh` to login after `tmux`.
+  - Option 3: Install [trzsz-ssh](https://trzsz.github.io/ssh) on the local computer, use `tssh` to login after `tmux`.
 
 - If `tmux` is running on the jump server.
 
   - Option 1: Use `tmux -CC` integration with iTerm2, please refer to [iTerm2 tmux Integration](https://trzsz.github.io/tmuxcc).
-  - Option 2: Install [trzsz-go](https://github.com/trzsz/trzsz-go) on the jump server, use `trzsz -r ssh` to login after `tmux`.
+  - Option 2: Install [trzsz-go](https://trzsz.github.io/go) on the jump server, use `trzsz -r ssh` to login after `tmux`.
+  - Option 3: Install [trzsz-ssh](https://trzsz.github.io/ssh) on the jump server, use `tssh` to login after `tmux`.
 
 - If an error occurs, and `trzsz` is hanging up.
 
