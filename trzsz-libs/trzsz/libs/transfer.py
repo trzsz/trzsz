@@ -101,6 +101,7 @@ def server_exit(msg):
         sys.stdout.write('\x1b8\x1b[0J')
     sys.stdout.write(msg)
     sys.stdout.write('\r\n')
+    sys.stdout.write('\x1b[?25h')
     if utils.CONFIG.tmux_output_junk:
         utils.tmux_refresh_client()
 

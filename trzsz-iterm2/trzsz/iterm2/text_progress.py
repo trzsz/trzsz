@@ -237,4 +237,14 @@ class TextProgressBar(utils.TrzszCallback):  # pylint: disable=too-many-instance
         return '[\u001b[36m' + '\u2588' * complete + '\u2591' * (total - complete) + '\u001b[0m]'
 
     def _inject_to_iterm2(self, data):
-        self.loop.create_task(self.session.async_inject(data.encode('utf8')))
+        return self.loop.create_task(self.session.async_inject(data.encode('utf8')))
+
+    def hide_cursor(self):
+        self._inject_to_iterm2('\x1b[?25l')
+
+    def show_cursor(self):
+        task = self._inject_to_iterm2('\x1b[?25h')
+        for _ in range(100):
+            if task.done():
+                return
+            time.sleep(0.01)

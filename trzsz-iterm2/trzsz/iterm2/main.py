@@ -29,6 +29,7 @@ import asyncio
 import argparse
 import tempfile
 import threading
+import contextlib
 import subprocess
 import iterm2
 from trzsz.libs import utils
@@ -148,14 +149,17 @@ def download_files(args, loop, connection, session, remote_is_windows):
     transfer.send_action(True, __version__, remote_is_windows)
     config = transfer.recv_config()
 
-    callback = None
-    if not config.quiet:
-        if args.progress == ProgressType.TEXT and loop and session:
-            callback = TextProgressBar(loop, session, config.tmux_pane_width)
-        else:
-            callback = ZenityProgressBar('Downloading')
+    with contextlib.ExitStack() as stack:
+        progress_bar = None
+        if not config.quiet:
+            if args.progress == ProgressType.TEXT and loop and session:
+                progress_bar = TextProgressBar(loop, session, config.tmux_pane_width)
+                progress_bar.hide_cursor()
+                stack.callback(progress_bar.show_cursor)
+            else:
+                progress_bar = ZenityProgressBar('Downloading')
 
-    local_list = transfer.recv_files(dest_path, callback)
+        local_list = transfer.recv_files(dest_path, progress_bar)
 
     transfer.client_exit(utils.format_saved_files(local_list, dest_path))
 
@@ -188,14 +192,17 @@ def upload_files(args, loop, connection, session, directory, remote_is_windows):
     if config.overwrite is True:
         utils.check_duplicate_names(file_list)
 
-    callback = None
-    if not config.quiet:
-        if args.progress == ProgressType.TEXT and loop and session:
-            callback = TextProgressBar(loop, session, config.tmux_pane_width)
-        else:
-            callback = ZenityProgressBar('Uploading')
+    with contextlib.ExitStack() as stack:
+        progress_bar = None
+        if not config.quiet:
+            if args.progress == ProgressType.TEXT and loop and session:
+                progress_bar = TextProgressBar(loop, session, config.tmux_pane_width)
+                progress_bar.hide_cursor()
+                stack.callback(progress_bar.show_cursor)
+            else:
+                progress_bar = ZenityProgressBar('Uploading')
 
-    remote_list = transfer.send_files(file_list, callback)
+        remote_list = transfer.send_files(file_list, progress_bar)
 
     transfer.client_exit(utils.format_saved_files(remote_list, ''))
 
