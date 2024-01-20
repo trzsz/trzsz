@@ -1,4 +1,4 @@
-# trzsz ( trz / tsz ) - similar to ( rz / sz ) and compatible with tmux
+## trzsz ( trz / tsz ) - similar to ( rz / sz ) and compatible with tmux
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](https://choosealicense.com/licenses/mit/)
 [![PyPI trzsz](https://img.shields.io/pypi/v/trzsz?style=flat)](https://pypi.python.org/pypi/trzsz/)
