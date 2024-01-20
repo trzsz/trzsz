@@ -1,19 +1,27 @@
-# trzsz
-
-`trzsz` ( trz / tsz ) is a simple file transfer tools, similar to `lrzsz` ( rz / sz ), and compatible with `tmux`.
-
-Website: [https://trzsz.github.io](https://trzsz.github.io) 　中文文档：[https://trzsz.github.io/cn](https://trzsz.github.io/cn/)
+# trzsz ( trz / tsz ) - similar to ( rz / sz ) and compatible with tmux
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](https://choosealicense.com/licenses/mit/)
 [![PyPI trzsz](https://img.shields.io/pypi/v/trzsz?style=flat)](https://pypi.python.org/pypi/trzsz/)
+[![WebSite](https://img.shields.io/badge/WebSite-https%3A%2F%2Ftrzsz.github.io%2F-blue?style=flat)](https://trzsz.github.io/)
+[![中文文档](https://img.shields.io/badge/%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3-https%3A%2F%2Ftrzsz.github.io%2Fcn%2F-blue?style=flat)](https://trzsz.github.io/cn/)
 
-## Why?
+`trzsz` ( trz / tsz ) is a simple file transfer tools, similar to `lrzsz` ( rz / sz ), and compatible with `tmux`.
 
-Considering `laptop -> hostA -> hostB -> docker -> tmux`, using `scp` or `sftp` is inconvenience.
+## How to use
 
-In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's not compatible with `tmux`.
+1. Install `trzsz` ( trz / tsz ) on the server. [go](https://github.com/trzsz/trzsz-go), [py](https://github.com/trzsz/trzsz) and [js](https://github.com/trzsz/trzsz.js) versions are compatible with each other.
 
-`tmux` is not going to support rz / sz ( [906](https://github.com/tmux/tmux/issues/906), [1439](https://github.com/tmux/tmux/issues/1439) ), and creating a new tools is much easier than patching `tmux`.
+2. Use supported terminal on local. Use [trzsz-ssh ( tssh )](https://github.com/trzsz/trzsz-ssh) on local shell, or refer to `Supported Terminals` below.
+
+3. Use the `trz` ( similar to `rz` ) to upload files, and use the `tsz` ( similar to `sz` ) to download files.
+
+## Why to do
+
+- Considering `laptop -> hostA -> hostB -> docker -> tmux`, using `scp` or `sftp` is inconvenience.
+
+- In this case, `lrzsz` ( rz / sz ) is convenient to use, but unfortunately it's not compatible with `tmux`.
+
+- `tmux` is not going to support rz / sz ( [906](https://github.com/tmux/tmux/issues/906), [1439](https://github.com/tmux/tmux/issues/1439) ), so `trzsz` ( trz / tsz ) was developed.
 
 ## Advantage
 
