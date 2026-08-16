@@ -110,12 +110,16 @@ def main():
     elif tmux_mode == utils.TMUX_NORMAL_MODE:
         sys.stdout.write('\n\n\x1b[2A\x1b[0J' if 0 < utils.get_columns() < 40 else '\n\x1b[1A\x1b[0J')
         unique_id += 20
-    sys.stdout.write('\x1b7::TRZSZ:TRANSFER:S:%s:%013d\r\n' % (__version__, unique_id))
+
+    port = utils.GLOBAL.trzsz_io.start_tunnel_listener(unique_id)
+
+    sys.stdout.write('\x1b7::TRZSZ:TRANSFER:S:%s:%013d:%d\r\n' % (__version__, unique_id, port))
     sys.stdout.flush()
 
     try:
         utils.set_stdin_raw()
         utils.reconfigure_stdin()
+        utils.GLOBAL.trzsz_io.start_stdin_reader()
 
         send_files(args, file_list)
 

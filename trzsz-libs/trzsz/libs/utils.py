@@ -33,10 +33,17 @@ import base64
 import select
 import shutil
 import signal
+import socket
 import argparse
 import platform
+import threading
 import traceback
 import subprocess
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue
 
 PROTOCOL_VERSION = 1
 
@@ -46,6 +53,157 @@ TMUX_CONTROL_MODE = 2
 
 IS_RUNNING_ON_WINDOWS = platform.system() == 'Windows'
 
+try:
+    UNICODE = unicode
+except NameError:
+    UNICODE = str
+
+
+class TrzszIO:
+
+    def __init__(self):
+        self.queue = queue.Queue()
+        self.current_data = b''
+        self.tunnel_listener = None
+        self.tunnel_socket = None
+        self.tunnel_mode = False
+        self.tunnel_port = None
+        self.unique_id = None
+        self.lock = threading.Lock()
+
+    def start_stdin_reader(self):
+        stdin_thread = threading.Thread(target=self._stdin_reader)
+        stdin_thread.daemon = True
+        stdin_thread.start()
+
+    def _stdin_reader(self):
+        while True:
+            try:
+                data = os.read(sys.stdin.fileno(), 32 * 1024)
+            except (OSError, select.error) as err:
+                if is_eintr_error(err):
+                    continue
+                break
+            except Exception:
+                break
+
+            if not data:
+                break
+
+            with self.lock:
+                if self.tunnel_mode:
+                    # ignore stdin data
+                    continue
+
+            self.queue.put(data)
+
+        with self.lock:
+            if not self.tunnel_mode:
+                self.queue.put(None)
+
+    def start_tunnel_listener(self, unique_id):
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        listener.bind(('127.0.0.1', 0))
+        listener.listen(5)
+
+        self.unique_id = ('%013d' % unique_id)[:-2]
+        self.tunnel_listener = listener
+        self.tunnel_port = listener.getsockname()[1]
+
+        thread = threading.Thread(target=self._tunnel_listener)
+        thread.daemon = True
+        thread.start()
+
+        return self.tunnel_port
+
+    def _tunnel_listener(self):
+        while True:
+            try:
+                conn, _addr = self.tunnel_listener.accept()
+            except Exception:
+                return
+
+            thread = threading.Thread(target=self._tunnel_reader, args=(conn, ))
+            thread.daemon = True
+            thread.start()
+
+    def _tunnel_reader(self, conn):
+        client_hello = ('::TRZSZ::CLIENT::HELLO::%s:%d' % (self.unique_id, self.tunnel_port)).encode('ascii')
+        server_hello = ('::TRZSZ::SERVER::HELLO::%s:%d' % (self.unique_id, self.tunnel_port)).encode('ascii')
+
+        try:
+            hello_data = self._recv_exactly(conn, len(client_hello))
+            if hello_data != client_hello:
+                return
+
+            with self.lock:
+                if self.tunnel_mode:
+                    return
+                self.tunnel_socket = conn
+                self.tunnel_mode = True
+
+            conn.sendall(server_hello)
+
+            while True:
+                data = conn.recv(32 * 1024)
+                if not data:
+                    break
+                self.queue.put(data)
+            self.queue.put(None)
+        except Exception:
+            pass
+        finally:
+            conn.close()
+
+    def _recv_exactly(self, conn, size):
+        data = b''
+        while len(data) < size:
+            chunk = conn.recv(size - len(data))
+            if not chunk:
+                return None
+            data += chunk
+        return data
+
+    def read(self, size):
+        while True:
+            if self.current_data:
+                data = self.current_data
+            else:
+                try:
+                    data = self.queue.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+
+            if data is None:
+                raise TrzszError('EndOfInput', trace=False)
+
+            if len(data) <= size:
+                self.current_data = b''
+                return data
+
+            self.current_data = data[size:]
+            return data[:size]
+
+    def write(self, data):
+        with self.lock:
+            tunnel_socket = self.tunnel_socket
+
+        if tunnel_socket is not None:
+            if isinstance(data, UNICODE):
+                data = data.encode('utf8')
+            tunnel_socket.sendall(data)
+            return
+
+        if isinstance(data, bytes):
+            out = GLOBAL.trzsz_writer.buffer if hasattr(GLOBAL.trzsz_writer, 'buffer') else GLOBAL.trzsz_writer
+            out.write(data)
+            out.flush()
+            return
+
+        GLOBAL.trzsz_writer.write(data)
+        GLOBAL.trzsz_writer.flush()
+
 
 class GlobalVariables:
 
@@ -53,6 +211,7 @@ class GlobalVariables:
         self.stdin_old_tty = None
         self.tmux_mode = NO_TMUX_MODE
         self.trzsz_writer = sys.stdout
+        self.trzsz_io = TrzszIO()
         self.windows_protocol = False
         self.next_read_buffer = b''
         self.clean_timeout = 0.1
@@ -115,18 +274,15 @@ else:
 
 atexit.register(reset_stdin_tty)
 
-if sys.version_info >= (3, ):
-    unicode = str  # pylint: disable=invalid-name
-
 
 def convert_to_unicode(buf):
-    if sys.version_info < (3, ) and not isinstance(buf, unicode):
-        return unicode(buf, 'utf8')
+    if sys.version_info < (3, ) and not isinstance(buf, UNICODE):
+        return UNICODE(buf, 'utf8')
     return buf
 
 
 def encode_if_unicode(buf):
-    if sys.version_info < (3, ) and isinstance(buf, unicode):
+    if sys.version_info < (3, ) and isinstance(buf, UNICODE):
         return buf.encode('utf8')
     return buf
 
@@ -274,24 +430,13 @@ def decode_buffer(buf):
 
 
 def send_line(typ, buf):
-    GLOBAL.trzsz_writer.write('#%s:%s%s' % (typ, buf, CONFIG.newline))
-    GLOBAL.trzsz_writer.flush()
+    GLOBAL.trzsz_io.write('#%s:%s%s' % (typ, buf, CONFIG.newline))
 
 
 def read_buffer(size):
     if GLOBAL.next_read_buffer:
         return GLOBAL.next_read_buffer
-    while True:
-        try:
-            buf = os.read(sys.stdin.fileno(), size)
-            break
-        except (OSError, select.error) as err:
-            if is_eintr_error(err):
-                continue
-            raise
-    if not buf:
-        raise TrzszError('EndOfStdin', trace=False)
-    return buf
+    return GLOBAL.trzsz_io.read(size)
 
 
 def read_line():
@@ -470,7 +615,7 @@ def check_integer(expect):
 
 
 def send_string(typ, buf):
-    if sys.version_info >= (3, ) or isinstance(buf, unicode):
+    if sys.version_info >= (3, ) or isinstance(buf, UNICODE):
         buf = buf.encode('utf8')
     send_line(typ, encode_buffer(buf))
 
@@ -528,9 +673,7 @@ def send_data(data):
         send_binary('DATA', data)
         return
     buf = escape_data(data, CONFIG.escape_chars)
-    out = GLOBAL.trzsz_writer.buffer if hasattr(GLOBAL.trzsz_writer, 'buffer') else GLOBAL.trzsz_writer
-    out.write(b'#DATA:%d\n%s' % (len(buf), buf))
-    out.flush()
+    GLOBAL.trzsz_io.write(b'#DATA:%d\n%s' % (len(buf), buf))
 
 
 def recv_timeout(_signum, _frame):
@@ -600,7 +743,7 @@ def check_path_writable(dest_path):
     return True
 
 
-def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):  # pylint: disable=too-many-arguments
+def check_path_readable(path_id, path, mode, file_list, rel_path, visited_dir):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     if not stat.S_ISDIR(mode):
         if not stat.S_ISREG(mode):
             raise TrzszError('Not a regular file: %s' % path, trace=False)
