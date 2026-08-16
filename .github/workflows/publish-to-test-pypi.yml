@@ -11,11 +11,11 @@ jobs:
       test_version: ${{ steps.test_version.outputs.version_number }}
     steps:
       - name: Checkout trzsz
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       - name: Install Python Dependencies
         run: python3 -m pip install --upgrade setuptools wheel
       - name: Update test version
@@ -38,33 +38,33 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_TEST_PYPI_API_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
-          packages_dir: dist/
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
       - name: Publish trzsz-libs to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_LIBS_TEST_PYPI_API_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
-          packages_dir: trzsz-libs/dist/
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: trzsz-libs/dist/
       - name: Publish trzsz-svr to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_SVR_TEST_PYPI_API_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
-          packages_dir: trzsz-svr/dist/
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: trzsz-svr/dist/
       - name: Publish trzsz-iterm2 to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TRZSZ_ITERM2_TEST_PYPI_API_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
-          packages_dir: trzsz-iterm2/dist/
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: trzsz-iterm2/dist/
   test-python2:
     name: Install trzsz with Python2
     needs: build-and-publish
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python
-        uses: MatteoH2O1999/setup-python@v2
+        uses: MatteoH2O1999/setup-python@v6
         with:
           python-version: "2.7"
       - name: Wait 10 minute
@@ -81,9 +81,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.7"
+          python-version: "3.8"
       - name: Wait 10 minute
         run: sleep 600
       - name: Install trzsz
@@ -98,9 +98,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.7"
+          python-version: "3.8"
       - name: Wait 10 minute
         run: sleep 600
       - name: Install trzsz with iterm2
