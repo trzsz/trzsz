@@ -18,6 +18,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install setuptools wheel
           cd trzsz-libs && python setup.py install && cd -
+          cd trzsz-svr && python setup.py install && cd -
       - name: Run unit test for trzsz-libs
         run: python -m unittest discover trzsz-libs
       - name: Run unit test for trzsz-svr
@@ -39,6 +40,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install setuptools wheel
           cd trzsz-libs && python setup.py install && cd -
+          cd trzsz-svr && python setup.py install && cd -
       - name: Run unit test for trzsz-libs
         run: python -m unittest discover trzsz-libs
       - name: Run unit test for trzsz-svr
@@ -60,6 +62,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install setuptools wheel
           cd trzsz-libs && python setup.py install && cd -
+          cd trzsz-svr && python setup.py install && cd -
+          cd trzsz-iterm2 && python setup.py install && cd -
           python -m pip install --upgrade iterm2
       - name: Run unit test for trzsz-libs
         run: python -m unittest discover trzsz-libs
