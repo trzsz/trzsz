@@ -81,6 +81,8 @@
 
 - [ttyd](https://github.com/tsl0922/ttyd) -- upgrade to `1.7.3` or higher, and start with `-t enableTrzsz=true`, use `https` unless localhost.
 
+- [GoTerm](https://github.com/ykfq/goterm) -- lightweight and modern ssh terminal based on Go and Wails v3, born with trzsz support.
+
 - [trzsz-go](https://trzsz.github.io/go) -- supports all terminals that support a local shell.
 
 - [trzsz.js](https://trzsz.github.io/js) -- making webshell in browser and electron terminal supports `trzsz`.
