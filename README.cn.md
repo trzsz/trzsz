@@ -82,6 +82,8 @@
 
 - [ttyd](https://github.com/tsl0922/ttyd) -- 升级到 `1.7.3` 以上的版本，并且启动时加上 `-t enableTrzsz=true`，非 localhost 要用 `https`。
 
+- [GoTerm](https://github.com/ykfq/goterm) -- 基于 Go 和 Wails v3 的轻量现代 SSH 终端，原生支持 trzsz。
+
 - [trzsz-go](https://trzsz.github.io/cn/go) -- 只要是支持本地 shell 的终端就可以用。
 
 - [trzsz.js](https://trzsz.github.io/cn/js) -- 让运行在浏览器中的 webshell 和用 electron 开发的终端支持 `trzsz`。
