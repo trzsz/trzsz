@@ -39,8 +39,11 @@ class Session():
 
 
 def output_length(output):
-    return text_progress.display_length(
-        re.sub(r'(\u2588|\u2591)', '*', re.sub(r'\u001b\[\d+[mD]', '', re.sub(r'\r', '', output))))
+    output = re.sub(r'\r', '', output)
+    output = re.sub(r'\x1b\[\?7[lh]', '', output)
+    output = re.sub(r'\u001b\[\d+[mD]', '', output)
+    output = re.sub(r'(\u2588|\u2591)', '*', output)
+    return text_progress.display_length(output)
 
 
 class TestTextProgressBar(unittest.TestCase):
@@ -243,7 +246,7 @@ class TestTextProgressBar(unittest.TestCase):
         self.tgb.on_step(300)
         self.assertEqual(mock_time.call_count, 2)
         self.assertEqual(self.mock_inject.call_count, 1)
-        self.assertEqual('30%', self.mock_inject.call_args_list[0].args[0])
+        self.assertEqual('30%', re.sub(r'\x1b\[\?7[lh]', '', self.mock_inject.call_args_list[0].args[0]))
 
     @unittest.mock.patch('time.time',
                          side_effect=[1646564135, 1646564136, 1646564136, 1646564137, 1646564139, 1646564139])

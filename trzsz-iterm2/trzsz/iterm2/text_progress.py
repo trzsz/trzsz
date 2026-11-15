@@ -157,6 +157,7 @@ class TextProgressBar(utils.TrzszCallback):  # pylint: disable=too-many-instance
             speed_str = size_to_str(speed) + '/s'
             eta_str = time_to_str(round((self.size - self.step) / speed)) + ' ETA'
         progress_text = self._progress_text(percentage, total, speed_str, eta_str)
+        progress_text = f'\x1b[?7l{progress_text}\x1b[?7h'  # no auto wrap
 
         if self.first_write:
             self.first_write = False
