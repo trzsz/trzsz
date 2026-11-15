@@ -562,7 +562,7 @@ def strip_tmux_status_line(buf):
 def recv_line(expect_typ, may_has_junk=False):
     if GLOBAL.stopped:
         raise TrzszError('Stopped', trace=False)
-    if IS_RUNNING_ON_WINDOWS or GLOBAL.windows_protocol:
+    if (not GLOBAL.trzsz_io.tunnel_mode) and (IS_RUNNING_ON_WINDOWS or GLOBAL.windows_protocol):
         line = read_line_on_windows()
         idx = line.rfind('#' + expect_typ + ':')
         if idx >= 0:
@@ -573,7 +573,7 @@ def recv_line(expect_typ, may_has_junk=False):
                 line = line[idx:]
         return line
     line = read_line()
-    if CONFIG.tmux_output_junk or may_has_junk:
+    if (not GLOBAL.trzsz_io.tunnel_mode) and (CONFIG.tmux_output_junk or may_has_junk):
         if line:
             while line[-1] == '\r':
                 line = line[:-1] + read_line()
