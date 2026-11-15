@@ -5,7 +5,7 @@ on:
 jobs:
   build-and-publish:
     name: Build and publish trzsz to PyPI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       trzsz_version: ${{ steps.trzsz_version.outputs.version_number }}
     steps:
@@ -56,7 +56,7 @@ jobs:
   test-python2:
     name: Install trzsz with Python2
     needs: build-and-publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set up Python
         uses: MatteoH2O1999/setup-python@v6
@@ -73,7 +73,7 @@ jobs:
   test-python3:
     name: Install trzsz with Python3
     needs: build-and-publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set up Python
         uses: actions/setup-python@v6

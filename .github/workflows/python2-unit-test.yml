@@ -2,7 +2,7 @@ name: Trzsz Python2 Unit Test
 on: [push]
 jobs:
   unit-test-on-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: ["2.7"]
@@ -21,7 +21,7 @@ jobs:
       - name: Run unit test for trzsz-svr
         run: python -m unittest discover trzsz-svr
   unit-test-on-windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
     strategy:
       matrix:
         python-version: ["2.7"]
