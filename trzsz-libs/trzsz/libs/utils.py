@@ -445,7 +445,7 @@ def read_line():
         buf = read_buffer(32 * 1024)
         new_line_idx = buf.find(b'\n')
         if new_line_idx >= 0:
-            # +1 to ignroe the '\n'
+            # +1 to ignore the '\n'
             GLOBAL.next_read_buffer = buf[new_line_idx + 1:]
             buf = buf[:new_line_idx]
         else:
@@ -500,8 +500,11 @@ def read_line_on_windows():  # pylint: disable=too-many-branches
         buf = read_buffer(32 * 1024)
         new_line_idx = buf.find(b'!')
         if new_line_idx >= 0:
-            # +1 to ignroe the '\n'
-            GLOBAL.next_read_buffer = buf[new_line_idx + 1:]
+            # +1 to ignore '!', and +1 more if followed by '\n'
+            next_idx = new_line_idx + 1
+            if buf[next_idx:next_idx + 1] == b'\n':
+                next_idx += 1
+            GLOBAL.next_read_buffer = buf[next_idx:]
             buf = buf[:new_line_idx]
         else:
             GLOBAL.next_read_buffer = b''
